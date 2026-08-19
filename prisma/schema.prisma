@@ -1,0 +1,510 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PersonType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum LeadSource {
+  WEBSITE
+  WHATSAPP
+  REFERRAL
+  MANUAL
+  OTHER
+}
+
+enum LeadService {
+  SCHEDULED_VISITS
+  AL_MANAGEMENT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL_SENT
+  NEGOTIATING
+  WON
+  CONTRACT_SENT
+  SIGNED
+  LOST
+}
+
+enum PropertyTypology {
+  APARTMENT
+  HOUSE
+  VILLA
+  STUDIO
+  OTHER
+}
+
+enum ServicePackage {
+  FULL_MANAGEMENT
+  CO_HOST
+  SETUP
+}
+
+enum CommissionBase {
+  GROSS
+  NET
+}
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  PARTIALLY_SIGNED
+  SIGNED
+  CANCELLED
+}
+
+enum VisitKind {
+  KNOWLEDGE
+  PROPERTY_CARE
+  OPERATION
+}
+
+enum VisitStatus {
+  SCHEDULED
+  DONE
+  CANCELLED
+}
+
+enum PulseDeviceKind {
+  GATEWAY
+  DOOR
+  TEMP_HUMIDITY
+  WATER
+  MOTION
+  OTHER
+}
+
+enum PulseAlertType {
+  WATER_LEAK
+  DOOR_OPEN
+  TEMP_HIGH
+  TEMP_LOW
+  HUMIDITY_HIGH
+  MOTION
+  BATTERY
+  OFFLINE
+}
+
+enum PulseAlertStatus {
+  OPEN
+  ACKED
+  RESOLVED
+}
+
+enum IoTProvider {
+  TUYA
+}
+
+enum TemplateType {
+  PROPOSAL
+  CONTRACT
+}
+
+enum TemplateStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum SignerRole {
+  COMPANY
+  OWNER
+}
+
+model User {
+  id            String     @id
+  name          String
+  email         String
+  emailVerified Boolean    @default(false)
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  assignedLeads Lead[]     @relation("LeadAssignee")
+  activities    Activity[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model CompanySettings {
+  id      String @id @default("default")
+  name    String
+  nif     String
+  address String
+  email   String
+  phone   String
+  website String?
+}
+
+model Person {
+  id          String     @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  nif         String?
+  address     String?
+  type        PersonType @default(INDIVIDUAL)
+  companyName String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  leads       Lead[]
+  properties  Property[]
+}
+
+model Property {
+  id        String            @id @default(cuid())
+  personId  String
+  person    Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  address   String
+  city      String?
+  typology  PropertyTypology  @default(APARTMENT)
+  capacity  Int?
+  rnal      String?
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  leads     Lead[]
+  proposals Proposal[]
+  contracts Contract[]
+  visits    Visit[]
+  pulseSite PulseSite?
+}
+
+model Lead {
+  id           String      @id @default(cuid())
+  personId     String
+  person       Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  propertyId   String?
+  property     Property?   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  source       LeadSource   @default(MANUAL)
+  service      LeadService  @default(AL_MANAGEMENT)
+  status       LeadStatus   @default(NEW)
+  assignedToId String?
+  assignedTo   User?       @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  lostReason   String?
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  proposals    Proposal[]
+  activities   Activity[]
+  visits       Visit[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Visit {
+  id          String      @id @default(cuid())
+  leadId      String
+  lead        Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId  String?
+  property    Property?   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  kind        VisitKind   @default(KNOWLEDGE)
+  status      VisitStatus @default(SCHEDULED)
+  scheduledAt DateTime
+  notes       String?
+  outcome     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([scheduledAt, status])
+  @@index([leadId, scheduledAt])
+}
+
+model PulseSite {
+  id          String      @id @default(cuid())
+  propertyId  String      @unique
+  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  status      String      @default("ACTIVE")
+  provider     IoTProvider @default(TUYA)
+  locationId   String?
+  locationName String?
+  publicToken  String?     @unique
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  devices     PulseDevice[]
+  alerts      PulseAlert[]
+  pushSubscriptions PulsePushSubscription[]
+  notifySettings PulseNotifySettings?
+}
+
+model PulseNotifySettings {
+  siteId    String    @id
+  site      PulseSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  push      Boolean   @default(true)
+  water     Boolean   @default(true)
+  offline   Boolean   @default(true)
+  battery   Boolean   @default(true)
+  climate       Boolean  @default(true)
+  quietEnabled  Boolean  @default(false)
+  quietStart    String   @default("22:00")
+  quietEnd      String   @default("08:00")
+  updatedAt     DateTime @updatedAt
+}
+
+model PulsePushSubscription {
+  id        String    @id @default(cuid())
+  siteId    String
+  site      PulseSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  endpoint  String    @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime  @default(now())
+
+  @@index([siteId])
+}
+
+model PulseDevice {
+  id               String          @id @default(cuid())
+  siteId           String
+  site             PulseSite       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  kind             PulseDeviceKind
+  label            String
+  model            String
+  providerDeviceId String?         @unique
+  online           Boolean         @default(false)
+  lastSeenAt       DateTime?
+  batteryPct       Int?
+  lastPayload      Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  alerts           PulseAlert[]
+  samples          PulseSample[]
+
+  @@index([siteId, kind])
+}
+
+model PulseSample {
+  id          String      @id @default(cuid())
+  deviceId    String
+  device      PulseDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  recordedAt  DateTime    @default(now())
+  temperature Float?
+  humidity    Float?
+  leak        Boolean?
+  open        Boolean?
+  motion      Boolean?
+  lux         Float?
+  batteryPct  Int?
+  online      Boolean     @default(true)
+
+  @@index([deviceId, recordedAt])
+}
+
+model PulseAlert {
+  id          String           @id @default(cuid())
+  siteId      String
+  site        PulseSite        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  deviceId    String?
+  device      PulseDevice?     @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  type        PulseAlertType
+  status      PulseAlertStatus @default(OPEN)
+  message     String
+  triggeredAt DateTime         @default(now())
+  resolvedAt  DateTime?
+
+  @@index([siteId, status, triggeredAt])
+}
+
+model Template {
+  id         String         @id @default(cuid())
+  type       TemplateType
+  name       String
+  version    Int            @default(1)
+  status     TemplateStatus @default(DRAFT)
+  sections   Json
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  publishedAt DateTime?
+  revisions  TemplateRevision[]
+
+  @@index([type, status])
+}
+
+model TemplateRevision {
+  id          String     @id @default(cuid())
+  templateId  String
+  template    Template   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version     Int
+  sections    Json
+  publishedAt DateTime   @default(now())
+
+  @@unique([templateId, version])
+}
+
+model Proposal {
+  id             String          @id @default(cuid())
+  reference      String          @unique
+  leadId         String
+  lead           Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property        @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  templateId     String?
+  templateVersion Int?
+  status         ProposalStatus  @default(DRAFT)
+  package        ServicePackage  @default(FULL_MANAGEMENT)
+  commissionPct  Decimal         @db.Decimal(5, 2)
+  commissionBase CommissionBase  @default(GROSS)
+  setupFee       Decimal?        @db.Decimal(10, 2)
+  photographyFee Decimal?        @db.Decimal(10, 2)
+  reserveFundPct Decimal?        @db.Decimal(5, 2)
+  includedServices String        @default("")
+  extraServices  String          @default("")
+  validUntil     DateTime
+  snapshot       Json
+  publicToken    String          @unique
+  sentAt         DateTime?
+  viewedAt       DateTime?
+  acceptedAt     DateTime?
+  rejectedAt     DateTime?
+  rejectedReason String?
+  pdfPath        String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  contract       Contract?
+
+  @@index([status])
+  @@index([publicToken])
+}
+
+model Contract {
+  id              String         @id @default(cuid())
+  reference       String         @unique
+  proposalId      String         @unique
+  proposal        Proposal       @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  propertyId      String
+  property        Property       @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  templateId      String?
+  templateVersion Int?
+  status          ContractStatus @default(DRAFT)
+  startsOn        DateTime
+  endsOn          DateTime
+  noticeDays      Int            @default(60)
+  snapshot        Json
+  publicToken     String         @unique
+  documentHash    String?
+  signedPdfPath   String?
+  pdfPath         String?
+  sentAt          DateTime?
+  signedAt        DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  signatures      Signature[]
+  otpChallenges   OtpChallenge[]
+
+  @@index([publicToken])
+}
+
+model Signature {
+  id          String     @id @default(cuid())
+  contractId  String
+  contract    Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  role        SignerRole
+  signerName  String
+  signerEmail String
+  signedAt    DateTime?
+  ip          String?
+  userAgent   String?
+  otpVerified Boolean    @default(false)
+  typedName   String?
+  createdAt   DateTime   @default(now())
+
+  @@unique([contractId, role])
+}
+
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  contractId String
+  contract   Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  email      String
+  codeHash   String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([contractId, email])
+}
+
+model Activity {
+  id         String   @id @default(cuid())
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  action     String
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  payload    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([entityType, entityId])
+}

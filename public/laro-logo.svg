@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 328 80" role="img" aria-labelledby="title">
+  <title id="title">Laro</title>
+  <g fill="none" stroke="#1D211D" stroke-width="9.5" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M10 10v59h44" />
+    <path d="M82 69V31l25-22 25 22v38M97 69V48h20v21" />
+    <path d="M157 69V10h29c16 0 25 8 25 20s-9 20-25 20h-29" />
+    <path d="M186 50l29 19" stroke-linecap="butt" />
+    <ellipse cx="282" cy="39.5" rx="36" ry="29.5" />
+  </g>
+</svg>
