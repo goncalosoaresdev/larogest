@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  DATABASE_URL: postgresql://larogest:larogest@localhost:5432/larogest
+  BETTER_AUTH_SECRET: ci-better-auth-secret-not-for-production-use
+  BETTER_AUTH_URL: http://localhost:3000
+  EMAIL_FROM: Laro <propostas@laro.pt>
+
+jobs:
+  quality:
+    name: Lint, typecheck, and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  verify:
+    name: Migrate and build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: larogest
+          POSTGRES_PASSWORD: larogest
+          POSTGRES_DB: larogest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U larogest -d larogest"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('package-lock.json') }}-
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npx prisma migrate deploy
+      - run: npm run build

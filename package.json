@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "prisma generate && next typegen && tsc --noEmit",
     "test": "tsx --test src/lib/*.test.ts",
     "db:up": "docker compose up -d",
     "db:migrate": "prisma migrate dev",

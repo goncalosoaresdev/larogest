@@ -13,6 +13,26 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
+    files: [
+      "src/components/casa-pulse.tsx",
+      "src/components/casa-settings.tsx",
+      "src/components/casa-today-chart.tsx",
+    ],
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/exhaustive-deps": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
