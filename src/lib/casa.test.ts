@@ -52,5 +52,6 @@ describe("toCasaOwnerAlert", () => {
     assert.equal(alert.type, "WATER_LEAK");
     assert.equal(alert.triggeredAt, triggeredAt.toISOString());
     assert.equal(alert.message, "Fuga");
+    assert.equal(alert.deviceId, null);
   });
 });

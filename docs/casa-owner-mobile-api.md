@@ -20,7 +20,7 @@ Related **website** (do not call from native): owners can also log in in a brows
 5. Do **not** call `POST /api/auth/email-otp/send-verification-otp` or `POST /api/auth/sign-in/email-otp` directly. They will not create an owner or will reject non-owners.
 6. A valid-looking email on `POST /api/casa/auth/otp` **always** returns `{ "ok": true }`, even if that inbox has no house. Do not tell the user “this email is not registered.”
 7. Treat another owner’s `siteId` as **not found** (HTTP 404). Do not probe IDs.
-8. Skip Web Push (`/push`) on native. Those endpoints are VAPID browser push. Use APNs/FCM later if needed; that API does not exist yet.
+8. Skip Web Push (`GET/POST/DELETE /api/casa/push`). Those endpoints are VAPID browser push. Native uses APNs via `POST/DELETE /api/casa/devices`.
 9. JSON only. `Content-Type: application/json` on POST/PATCH. No multipart. No GraphQL.
 
 ---
@@ -45,8 +45,9 @@ email → POST /api/casa/auth/otp
      → user types 6-digit code from email
      → POST /api/casa/auth/verify  → { token, user, houses }
      → store token
+     → POST /api/casa/devices  { platform: "ios", token }  (native only)
      → GET /api/casa and /api/casa/{siteId}/* with Authorization: Bearer <token>
-     → POST /api/casa/auth/sign-out  (then delete token)
+     → DELETE /api/casa/devices then POST /api/casa/auth/sign-out  (then delete token)
 ```
 
 - OTP length: **6 digits** (`/^\d{6}$/`).
@@ -89,7 +90,7 @@ Headers always include:
 | `not_found` | `404` | House missing, disabled, or not owned by this user |
 | `rate_limited` | `429` | Too many requests. Honor `Retry-After` (seconds) if present |
 | `server_error` | `500` | Server failure |
-| `push_unconfigured` | `503` | Only `/push` when VAPID is not configured — native should not call this |
+| `push_unconfigured` | `503` | Only `GET /api/casa/push` when VAPID is not configured — native should not call this |
 
 Suggested UI copy:
 
@@ -113,7 +114,7 @@ Unknown `error` values: use the `server_error` string. Do not parse or sniff the
 | `404` | House not found, disabled, or not owned by this user |
 | `429` | Rate limited. Honor `Retry-After` (seconds) if present |
 | `500` | Server failure |
-| `503` | Only `/push` when VAPID is not configured — native should not call this |
+| `503` | Only `GET /api/casa/push` when VAPID is not configured — native should not call this |
 
 ### Authenticated request
 
@@ -314,9 +315,43 @@ Clocks: `quietStart`, `quietEnd` as `"HH:mm"` (`00:00`–`23:59`).
 
 ---
 
-### `GET` / `POST` / `DELETE /api/casa/{siteId}/push`
+### `POST` / `DELETE /api/casa/devices`
 
-Web Push (VAPID). **Skip in native.** `GET` returns `{ "publicKey" }` or `503`.
+Requires bearer. **Native iOS (APNs).** Register after login when you have a device token; delete on logout or `401`.
+
+Request:
+
+```json
+{ "platform": "ios", "token": "<apns device token hex>" }
+```
+
+`token` is the hex APNs device token (64–200 hex chars). Empty body is invalid.
+
+- `200` `{ "ok": true }`
+- `400` `{ "error": "invalid_body" }`
+- `401` `{ "error": "unauthenticated" }`
+
+Do **not** send Web Push keys here. One token per phone; the server fans out alerts for every house this owner can access.
+
+Notification payload (also used for the PWA):
+
+```json
+{
+  "title": "Laro Pulse · Fuga de água",
+  "body": "Cozinha · Rua das Flores 1 · Porto",
+  "siteId": "cuid",
+  "type": "WATER_LEAK",
+  "url": "/casa/{siteId}"
+}
+```
+
+On tap, open that `siteId`. Collapse/thread by `siteId`. Map `type` in the app locale if the UI is English; do not show `title` raw unless the locale is Portuguese.
+
+---
+
+### `GET` / `POST` / `DELETE /api/casa/push`
+
+Web Push (VAPID) for the Casa website / PWA. **Skip in native.** `GET` returns `{ "publicKey" }` or `503` `{ "error": "push_unconfigured" }`.
 
 ---
 
@@ -381,6 +416,7 @@ type CasaAlert = {
   status: CasaAlertStatus;
   message: string;
   triggeredAt: string; // ISO
+  deviceId: string | null;
 };
 
 type CasaSample = {
@@ -454,6 +490,15 @@ Suggested labels if you map enums (`kind` / `type` / `headline`). Keep these in 
 
 Open alerts: `status === "OPEN"`. Water leak: `type === "WATER_LEAK"` or `reading.leak === true`.
 
+Chart / event readout — join `alerts[].deviceId` to samples (or the live device) for the number. Do not show humidity for every mark.
+
+| `type` | Value |
+| --- | --- |
+| `HUMIDITY_HIGH` | `humidity` % |
+| `TEMP_HIGH`, `TEMP_LOW` | `temperature` °C |
+| `BATTERY` | `batteryPct` % |
+| `WATER_LEAK`, `DOOR_OPEN`, `MOTION`, `OFFLINE` | type label only (no climate number) |
+
 ---
 
 ## Suggested client flow
@@ -462,8 +507,8 @@ Open alerts: `status === "OPEN"`. Water leak: `type === "WATER_LEAK"` or `readin
 2. Login: email screen → `POST .../otp` → code screen → `POST .../verify` → save token → house list or first `siteId`. Map `error` codes to locale strings; never show the code.
 3. House screen: `GET .../live` on appear; poll ~60s while visible; pause in background.
 4. History: first page without cursor; next pages with `at` + `id`.
-5. Settings: `GET` notify, `PATCH` on toggle. Hide Web Push or map `push` as “alertas” only if you have another channel.
-6. Logout: `POST .../sign-out`, delete token.
+5. Settings: `GET` notify, `PATCH` on toggle. Do not call `/push`.
+6. After login: request APNs permission, `POST /api/casa/devices`. On logout: `DELETE /api/casa/devices`, then `POST .../sign-out`, delete token.
 
 Timeouts: 10s is enough. Retry `GET` on network errors; do not auto-retry `POST /otp` or `/verify`.
 
@@ -479,6 +524,8 @@ Timeouts: 10s is enough. Retry `GET` on network errors; do not auto-retry `POST 
 | `/p/{token}`, `/c/{token}` | Public proposal/contract links |
 | `/casa/{oldPublicToken}` | Deprecated capability URL |
 | `/leads`, `/pulse`, `/api/files/*` | Staff |
+| `/api/casa/push` | PWA Web Push (VAPID) |
+| `/api/casa/{siteId}/push` | Removed; use `/api/casa/push` or `/api/casa/devices` |
 
 ---
 
@@ -513,5 +560,6 @@ In local email mode, OTP HTML is written under `storage/emails/` on the server. 
 - [ ] House switcher uses `siteId` from `houses`, not tokens
 - [ ] Live poll cancelled on background
 - [ ] History pagination uses `nextCursor`
+- [ ] After login, `POST /api/casa/devices` with the APNs token; `DELETE` it on logout
 - [ ] Notify PATCH is partial
-- [ ] No `/api/auth/*`, no passwords, no Web Push unless specified later
+- [ ] No `/api/auth/*`, no passwords, no `/api/casa/push`

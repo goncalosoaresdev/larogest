@@ -4,6 +4,7 @@ import {
   isCasaToken,
   isHttpsUrl,
   isPushKey,
+  isApnsToken,
   limited,
   ownerAuthErrorCode,
   pdfContentDisposition,
@@ -46,6 +47,9 @@ describe("api helpers", () => {
     assert.equal(isHttpsUrl("http://evil.example/hook"), false);
     assert.equal(isPushKey("BNabcdefghijklmnopqrstuvwxyz012345"), true);
     assert.equal(isPushKey("no spaces!"), false);
+    assert.equal(isApnsToken("a".repeat(64)), true);
+    assert.equal(isApnsToken("GG"), false);
+    assert.equal(isApnsToken("short"), false);
   });
 
   it("maps owner auth Zod issues to stable error codes", () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { getCasaPushStatus, subscribeCasaPush, type CasaPushStatus } from "@/lib/casa-push-client";
+import { getCasaPushStatus, subscribeCasaPush, unsubscribeCasaPush, type CasaPushStatus } from "@/lib/casa-push-client";
 import { DEFAULT_CASA_NOTIFY, parseClockMinutes, type CasaNotifyPrefs } from "@/lib/casa-notify-types";
 import { casaText, isPushErrorKey, type CasaLocale } from "@/lib/casa-locale";
 import { useCasaLocale } from "@/components/use-casa-locale";
@@ -51,7 +51,7 @@ export function CasaSettings({ siteId, canSignOut = true }: { siteId: string; ca
     setNote(null);
     try {
       if (on) {
-        const result = await subscribeCasaPush(siteId);
+        const result = await subscribeCasaPush();
         setPushState(getCasaPushStatus());
         if (!result.ok) setNote(translatePushError(locale, result.error, result.host));
       }
@@ -62,6 +62,14 @@ export function CasaSettings({ siteId, canSignOut = true }: { siteId: string; ca
       });
       if (!response.ok) throw new Error("save");
       setPrefs((await response.json()) as CasaNotifyPrefs);
+      if (!on) {
+        try {
+          await unsubscribeCasaPush();
+          setPushState(getCasaPushStatus());
+        } catch {
+          // Prefs already saved off; drop the browser subscription next time.
+        }
+      }
     } catch {
       setPrefs(previous);
     } finally {

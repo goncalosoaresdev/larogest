@@ -1,4 +1,4 @@
-import type { PulseAlert, PulseSample } from "@prisma/client";
+import type { PulseAlert, PulseAlertType, PulseSample } from "@prisma/client";
 import type { CasaOwnerAlert, CasaOwnerDevice } from "@/lib/casa";
 import { casaAlertTypeLabel, casaText, type CasaLocale } from "@/lib/casa-locale";
 
@@ -11,6 +11,13 @@ export type CasaDayPoint = {
   humidity: number;
 };
 
+export type CasaDayReadoutKind = "humidity" | "temperature" | "battery";
+
+export type CasaDayReadout = {
+  kind: CasaDayReadoutKind;
+  value: number;
+};
+
 export type CasaDayMark = {
   id: string;
   at: number;
@@ -19,6 +26,12 @@ export type CasaDayMark = {
   label: string;
   detail: string;
   tone: "ok" | "warn" | "alert";
+  alertType?: PulseAlertType;
+  readout?: CasaDayReadout;
+};
+
+type CasaDayAlert = Pick<PulseAlert, "id" | "type" | "status" | "triggeredAt"> & {
+  deviceId?: string | null;
 };
 
 export type CasaDayTick = {
@@ -45,7 +58,7 @@ export function startOfLisbonDay(now = new Date()) {
 
 export function buildCasaDay(input: {
   devices: CasaOwnerDevice[];
-  alerts: Array<Pick<PulseAlert, "id" | "type" | "status" | "triggeredAt"> | CasaOwnerAlert>;
+  alerts: Array<CasaDayAlert | CasaOwnerAlert>;
   samples?: PulseSample[];
   now?: Date;
   locale?: CasaLocale;
@@ -57,11 +70,15 @@ export function buildCasaDay(input: {
   const humidity = humidityFromDevice(climate);
   const lastSeen = climate?.lastSeenAt ? new Date(climate.lastSeenAt).getTime() : to;
   const nowAt = climate && !climate.online && climate.lastSeenAt ? Math.min(to, Math.max(from, lastSeen)) : to;
+  const samples = input.samples ?? [];
 
-  const points = sampleHumiditySeries(input.samples ?? [], climate?.id, from, nowAt, humidity);
+  const points = sampleHumiditySeries(samples, climate?.id, from, nowAt, humidity);
   const domain = humidityDomain(points, humidity);
   const marks = dayMarks({
     alerts: input.alerts,
+    devices: input.devices,
+    climate,
+    samples,
     from,
     to: nowAt,
     humidity,
@@ -82,17 +99,44 @@ export function buildCasaDay(input: {
   };
 }
 
-export function humidityAt(points: CasaDayPoint[], at: number) {
+export function seriesValueAt(points: { at: number; value: number }[], at: number) {
   if (points.length === 0) return null;
-  if (at <= points[0].at) return points[0].humidity;
+  if (at <= points[0].at) return points[0].value;
   const last = points[points.length - 1];
-  if (at >= last.at) return last.humidity;
+  if (at >= last.at) return last.value;
   const nextIndex = points.findIndex((point) => point.at >= at);
   const right = points[nextIndex];
   const left = points[nextIndex - 1];
-  if (!left || !right) return last.humidity;
+  if (!left || !right) return last.value;
   const span = right.at - left.at || 1;
-  return left.humidity + ((right.humidity - left.humidity) * (at - left.at)) / span;
+  return left.value + ((right.value - left.value) * (at - left.at)) / span;
+}
+
+export function humidityAt(points: CasaDayPoint[], at: number) {
+  return seriesValueAt(
+    points.map((point) => ({ at: point.at, value: point.humidity })),
+    at,
+  );
+}
+
+export function casaAlertReadout(
+  type: PulseAlertType,
+  values: { humidity: number | null; temperature: number | null; batteryPct: number | null },
+): CasaDayReadout | undefined {
+  switch (type) {
+    case "HUMIDITY_HIGH":
+      return values.humidity != null ? { kind: "humidity", value: values.humidity } : undefined;
+    case "TEMP_HIGH":
+    case "TEMP_LOW":
+      return values.temperature != null ? { kind: "temperature", value: values.temperature } : undefined;
+    case "BATTERY":
+      return values.batteryPct != null ? { kind: "battery", value: values.batteryPct } : undefined;
+    case "WATER_LEAK":
+    case "DOOR_OPEN":
+    case "MOTION":
+    case "OFFLINE":
+      return undefined;
+  }
 }
 
 export function smoothPath(points: { x: number; y: number }[]) {
@@ -126,22 +170,37 @@ function sampleHumiditySeries(
   to: number,
   humidityNow: number | null,
 ): CasaDayPoint[] {
+  return numericSeries(samples, climateId, from, to, (sample) => sample.humidity, humidityNow).map((point) => ({
+    at: point.at,
+    humidity: point.value,
+  }));
+}
+
+function numericSeries(
+  samples: PulseSample[],
+  deviceId: string | undefined,
+  from: number,
+  to: number,
+  read: (sample: PulseSample) => number | null | undefined,
+  nowValue: number | null,
+): { at: number; value: number }[] {
   const points = samples
-    .filter((sample) => sample.deviceId === climateId && sample.humidity != null)
-    .map((sample) => ({
-      at: new Date(sample.recordedAt).getTime(),
-      humidity: sample.humidity as number,
-    }))
-    .filter((point) => point.at >= from && point.at <= to)
+    .filter((sample) => sample.deviceId === deviceId)
+    .map((sample) => {
+      const value = read(sample);
+      if (value == null) return null;
+      return { at: new Date(sample.recordedAt).getTime(), value };
+    })
+    .filter((point): point is { at: number; value: number } => point != null && point.at >= from && point.at <= to)
     .sort((left, right) => left.at - right.at);
 
-  if (humidityNow != null) {
+  if (nowValue != null) {
     const last = points[points.length - 1];
-    if (!last || to - last.at > 15_000 || Math.abs(last.humidity - humidityNow) >= 0.2) {
-      points.push({ at: to, humidity: humidityNow });
+    if (!last || to - last.at > 15_000 || Math.abs(last.value - nowValue) >= 0.2) {
+      points.push({ at: to, value: nowValue });
     } else {
       last.at = to;
-      last.humidity = humidityNow;
+      last.value = nowValue;
     }
   }
 
@@ -149,7 +208,10 @@ function sampleHumiditySeries(
 }
 
 function dayMarks(input: {
-  alerts: Array<Pick<PulseAlert, "id" | "type" | "status" | "triggeredAt"> | CasaOwnerAlert>;
+  alerts: Array<CasaDayAlert | CasaOwnerAlert>;
+  devices: CasaOwnerDevice[];
+  climate?: CasaOwnerDevice;
+  samples: PulseSample[];
   from: number;
   to: number;
   humidity: number | null;
@@ -158,20 +220,50 @@ function dayMarks(input: {
   locale: CasaLocale;
 }): CasaDayMark[] {
   const marks: CasaDayMark[] = [];
+  const temperatureNow = typeof input.climate?.reading.temperature === "number" ? input.climate.reading.temperature : null;
+  const temperaturePoints = numericSeries(
+    input.samples,
+    input.climate?.id,
+    input.from,
+    input.to,
+    (sample) => sample.temperature,
+    temperatureNow,
+  );
+  const batteryByDevice = new Map<string, { at: number; value: number }[]>();
+
+  const batteryPoints = (deviceId: string) => {
+    const cached = batteryByDevice.get(deviceId);
+    if (cached) return cached;
+    const device = input.devices.find((item) => item.id === deviceId);
+    const points = numericSeries(
+      input.samples,
+      deviceId,
+      input.from,
+      input.to,
+      (sample) => sample.batteryPct,
+      device?.batteryPct ?? null,
+    );
+    batteryByDevice.set(deviceId, points);
+    return points;
+  };
 
   for (const alert of input.alerts) {
     const at = new Date(alert.triggeredAt).getTime();
     if (at < input.from || at > input.to) continue;
-    const humidity = humidityAt(input.points, at) ?? input.humidity ?? 54;
+    const humidity = humidityAt(input.points, at) ?? input.humidity;
+    const temperature = seriesValueAt(temperaturePoints, at) ?? temperatureNow;
+    const batteryPct = alert.deviceId ? seriesValueAt(batteryPoints(alert.deviceId), at) : null;
     const resolved = alert.status === "RESOLVED" || alert.status === "ACKED";
     marks.push({
       id: alert.id,
       at,
-      humidity,
+      humidity: humidity ?? 54,
       kind: "event",
       label: casaAlertTypeLabel(input.locale, alert.type),
       detail: resolved ? casaText(input.locale, "chart.resolved") : casaText(input.locale, "chart.open"),
       tone: !resolved || alert.type === "WATER_LEAK" ? "alert" : "warn",
+      alertType: alert.type,
+      readout: casaAlertReadout(alert.type, { humidity, temperature, batteryPct }),
     });
   }
 

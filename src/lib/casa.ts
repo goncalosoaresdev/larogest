@@ -1,6 +1,6 @@
 import type { PulseAlert, PulseDevice, PulseSample } from "@prisma/client";
 import { jsonError } from "@/lib/api";
-import { ownerCanAccessSite } from "@/lib/owner-auth";
+import { ownerCanAccessSite, siteOwnerLookup } from "@/lib/owner-auth";
 import { prisma } from "@/lib/prisma";
 import { buildCasaDay, startOfLisbonDay } from "@/lib/casa-day";
 import {
@@ -37,6 +37,7 @@ export type CasaAlertSnapshot = {
   message: string;
   triggeredAt: string;
   resolvedAt: string | null;
+  deviceId: string | null;
 };
 
 export type CasaSampleSnapshot = {
@@ -97,6 +98,7 @@ export type CasaOwnerAlert = {
   status: PulseAlert["status"];
   message: string;
   triggeredAt: string;
+  deviceId: string | null;
 };
 
 export type CasaHouse = {
@@ -135,6 +137,7 @@ export function toCasaOwnerAlert(alert: PulseAlert): CasaOwnerAlert {
     status: alert.status,
     message: alert.message,
     triggeredAt: alert.triggeredAt.toISOString(),
+    deviceId: alert.deviceId,
   };
 }
 
@@ -162,6 +165,33 @@ export async function requireCasaApiSite(siteId: string, request?: Request) {
   }
 
   return { site, error: null };
+}
+
+export async function requireCasaApiOwner(request?: Request) {
+  const session = await getSession(request);
+  if (!session?.user || getSessionRole(session) !== "OWNER") {
+    return { session: null, error: jsonError(401, "unauthenticated") };
+  }
+  return { session, error: null };
+}
+
+export async function listSiteOwnerUserIds(siteId: string) {
+  const site = await prisma.pulseSite.findUnique({
+    where: { id: siteId },
+    select: { property: { select: { person: { select: { userId: true, email: true } } } } },
+  });
+  const lookup = site ? siteOwnerLookup(site.property.person) : null;
+  if (!lookup) return [];
+  const owners = await prisma.user.findMany({
+    where: {
+      role: "OWNER",
+      ...(lookup.by === "userId"
+        ? { id: lookup.userId }
+        : { email: { equals: lookup.email, mode: "insensitive" } }),
+    },
+    select: { id: true },
+  });
+  return owners.map((owner) => owner.id);
 }
 
 export async function listOwnerHouses(userId: string): Promise<CasaHouseOption[]> {
@@ -295,6 +325,7 @@ export function toCasaSnapshot(house: CasaHouse): CasaSnapshot {
       message: alert.message,
       triggeredAt: alert.triggeredAt,
       resolvedAt: null,
+      deviceId: alert.deviceId,
     })),
     today: {
       samples: house.samples.map((sample) => ({

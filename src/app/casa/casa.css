@@ -531,9 +531,17 @@ html:has(.laro-casa) body {
 }
 .casa-today-title { min-width: 0; padding-top: 4px; }
 .casa-today-title h2 { margin: 0; font-size: 16px; font-weight: 560; letter-spacing: -.03em; }
-.casa-today-title p { margin: 5px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.35; }
+.casa-today-title p {
+  margin: 5px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .casa-today-read {
   display: grid;
+  flex: 0 0 auto;
   justify-items: end;
   margin: 0;
   line-height: 1;
@@ -560,6 +568,16 @@ html:has(.laro-casa) body {
   font-weight: 620;
   letter-spacing: -.02em;
 }
+.casa-today-status {
+  color: var(--olive-dark);
+  font-family: var(--font-casa), Inter, ui-sans-serif, sans-serif;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: .12em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .casa-today-read small {
   display: flex;
   align-items: baseline;
@@ -578,8 +596,10 @@ html:has(.laro-casa) body {
   text-transform: uppercase;
 }
 .casa-today-read[data-tone="alert"] .casa-today-value i,
+.casa-today-read[data-tone="alert"] .casa-today-status,
 .casa-today-read[data-tone="alert"] em { color: var(--alert); }
 .casa-today-read[data-tone="warn"] .casa-today-value i,
+.casa-today-read[data-tone="warn"] .casa-today-status,
 .casa-today-read[data-tone="warn"] em { color: var(--warn); }
 .casa-day { cursor: default; }
 .casa-day-port {
@@ -622,11 +642,17 @@ html:has(.laro-casa) body {
   pointer-events: none;
 }
 .casa-day-event {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   z-index: 2;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 .casa-day-event::before {
   width: 9px;

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DEFAULT_CASA_NOTIFY,
-  allowCasaNotify,
   isCasaQuietHour,
   parseClockMinutes,
+  selectCasaPushAlerts,
 } from "./casa-notify-types";
 
 describe("parseClockMinutes", () => {
@@ -39,13 +39,35 @@ describe("isCasaQuietHour", () => {
   });
 });
 
-describe("allowCasaNotify", () => {
-  it("honours per-type prefs and always allows motion", () => {
-    const muted = { ...DEFAULT_CASA_NOTIFY, water: false, climate: false };
-    assert.equal(allowCasaNotify(muted, "WATER_LEAK"), false);
-    assert.equal(allowCasaNotify(muted, "MOTION"), true);
-    assert.equal(allowCasaNotify(muted, "TEMP_HIGH"), false);
-    assert.equal(allowCasaNotify(DEFAULT_CASA_NOTIFY, "OFFLINE"), true);
-    assert.equal(allowCasaNotify(DEFAULT_CASA_NOTIFY, "DOOR_OPEN"), false);
+describe("selectCasaPushAlerts", () => {
+  const quiet = {
+    ...DEFAULT_CASA_NOTIFY,
+    quietEnabled: true,
+    quietStart: "22:00",
+    quietEnd: "08:00",
+  };
+  const night = new Date("2026-01-15T23:30:00Z");
+
+  it("drops everything when push is off", () => {
+    assert.equal(selectCasaPushAlerts([{ type: "WATER_LEAK" }], { ...DEFAULT_CASA_NOTIFY, push: false }).length, 0);
+  });
+
+  it("honours type prefs and always keeps motion", () => {
+    const muted = { ...DEFAULT_CASA_NOTIFY, water: false, battery: false };
+    assert.deepEqual(
+      selectCasaPushAlerts([{ type: "WATER_LEAK" }, { type: "MOTION" }, { type: "BATTERY" }], muted).map((item) => item.type),
+      ["MOTION"],
+    );
+  });
+
+  it("lets leaks and motion through quiet hours and holds the rest", () => {
+    assert.deepEqual(
+      selectCasaPushAlerts(
+        [{ type: "WATER_LEAK" }, { type: "MOTION" }, { type: "BATTERY" }, { type: "OFFLINE" }],
+        quiet,
+        night,
+      ).map((item) => item.type),
+      ["WATER_LEAK", "MOTION"],
+    );
   });
 });

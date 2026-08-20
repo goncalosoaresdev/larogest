@@ -13,9 +13,7 @@ export function getCasaPushStatus(): CasaPushStatus {
   return "ready";
 }
 
-export async function subscribeCasaPush(
-  siteId: string,
-): Promise<{ ok: boolean; error?: string; host?: string }> {
+export async function subscribeCasaPush(): Promise<{ ok: boolean; error?: string; host?: string }> {
   if (typeof window === "undefined") return { ok: false, error: "push.unavailable" };
   if (!window.isSecureContext) {
     return { ok: false, error: "push.insecure", host: window.location.host };
@@ -25,7 +23,7 @@ export async function subscribeCasaPush(
   }
 
   try {
-    const config = await fetch(`/api/casa/${siteId}/push`);
+    const config = await fetch("/api/casa/push");
     if (!config.ok) return { ok: false, error: "push.unconfigured" };
     const { publicKey } = (await config.json()) as { publicKey: string };
     if (!publicKey) return { ok: false, error: "push.vapid" };
@@ -47,7 +45,7 @@ export async function subscribeCasaPush(
       applicationServerKey: toApplicationServerKey(publicKey),
     });
     const raw = subscription.toJSON();
-    const response = await fetch(`/api/casa/${siteId}/push`, {
+    const response = await fetch("/api/casa/push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ endpoint: raw.endpoint, keys: raw.keys }),
@@ -59,12 +57,12 @@ export async function subscribeCasaPush(
   }
 }
 
-export async function unsubscribeCasaPush(siteId: string) {
+export async function unsubscribeCasaPush() {
   const registration = await navigator.serviceWorker.getRegistration("/");
   const subscription = await registration?.pushManager.getSubscription();
   const endpoint = subscription?.endpoint;
   await subscription?.unsubscribe();
-  await fetch(`/api/casa/${siteId}/push`, {
+  await fetch("/api/casa/push", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ endpoint }),

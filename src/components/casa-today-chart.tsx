@@ -18,7 +18,9 @@ import {
   smoothPath,
   type CasaDay,
   type CasaDayMark,
+  type CasaDayReadout,
 } from "@/lib/casa-day";
+import { casaDateLocale, type CasaLocale } from "@/lib/casa-locale";
 import { useCasaLocale } from "@/components/use-casa-locale";
 
 const HEIGHT = 96;
@@ -48,7 +50,9 @@ export function CasaTodayChart({
   const visibleEvents = events.filter((mark) => mark.at >= tape.start && mark.at <= tape.start + tape.windowMs);
   const selected = events.find((mark) => mark.id === selectedId) ?? null;
   const caption = selected
-    ? `${formatClock(selected.at)} ${selected.label} · ${selected.detail}`
+    ? selected.readout
+      ? `${formatClock(selected.at)} ${selected.label}`
+      : selected.label
     : visibleEvents.length
       ? visibleEvents.length === 1
         ? t("today.one")
@@ -64,18 +68,7 @@ export function CasaTodayChart({
           <h2>{t("today.title")}</h2>
           <p>{caption}</p>
         </div>
-        {selected ? (
-          <p className="casa-today-read" data-tone={selected.tone}>
-            <span className="casa-today-value">
-              <b>{Math.round(selected.humidity)}</b>
-              <i>%</i>
-            </span>
-            <small>
-              <em>{selected.detail}</em>
-              <span>{t("today.humidity")}</span>
-            </small>
-          </p>
-        ) : null}
+        {selected ? <SelectedReadout mark={selected} /> : null}
       </header>
       <DayPlot
         day={day}
@@ -87,6 +80,45 @@ export function CasaTodayChart({
       />
     </section>
   );
+}
+
+function SelectedReadout({ mark }: { mark: CasaDayMark }) {
+  const { locale, t } = useCasaLocale();
+  const readout = mark.readout;
+  return (
+    <p className="casa-today-read" data-tone={mark.tone}>
+      {readout ? (
+        <span className="casa-today-value">
+          <b>{formatReadoutValue(readout, locale)}</b>
+          <i>{readout.kind === "temperature" ? "°C" : "%"}</i>
+        </span>
+      ) : (
+        <strong className="casa-today-status">{mark.detail}</strong>
+      )}
+      <small>
+        {readout ? <em>{mark.detail}</em> : null}
+        <span>{readout ? t(readoutLabelKey(readout.kind)) : formatClock(mark.at)}</span>
+      </small>
+    </p>
+  );
+}
+
+function readoutLabelKey(kind: CasaDayReadout["kind"]) {
+  switch (kind) {
+    case "temperature":
+      return "today.temperature";
+    case "battery":
+      return "today.battery";
+    case "humidity":
+      return "today.humidity";
+  }
+}
+
+function formatReadoutValue(readout: CasaDayReadout, locale: CasaLocale) {
+  if (readout.kind === "temperature") {
+    return readout.value.toLocaleString(casaDateLocale(locale), { maximumFractionDigits: 1 });
+  }
+  return String(Math.round(readout.value));
 }
 
 function DayPlot({
@@ -178,9 +210,10 @@ function DayPlot({
                   style={dotStyle(point, tape.units)}
                   aria-pressed={active}
                   aria-label={`${formatClock(mark.at)} ${mark.label}, ${mark.detail}`}
+                  onPointerDown={(event) => event.stopPropagation()}
                   onClick={(event) => {
                     event.stopPropagation();
-                    if (!tape.dragged) onChoose(mark.id);
+                    onChoose(mark.id);
                   }}
                 />
               );
@@ -336,6 +369,7 @@ function useTape(day: CasaDay): Tape {
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
+    if ((event.target as Element | null)?.closest?.(".casa-day-event")) return;
     stopMotion();
     dragging.current = true;
     dragged.current = false;

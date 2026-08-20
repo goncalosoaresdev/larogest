@@ -29,6 +29,8 @@ describe("casa locale lookup", () => {
     assert.equal(casaText("en", "history.empty"), "No readings in this house yet.");
     assert.equal(casaAlertTypeLabel("pt", "WATER_LEAK"), "Fuga de água");
     assert.equal(casaAlertTypeLabel("en", "WATER_LEAK"), "Water leak");
+    assert.equal(casaText("pt", "today.temperature"), "temperatura");
+    assert.equal(casaText("en", "today.battery"), "battery");
     assert.equal(casaText("pt", "hello.morning"), "Bom dia,");
     assert.equal(casaText("en", "hello.morning"), "Good morning,");
     assert.equal(casaText("pt", "login.title"), "A sua casa, sempre por perto.");

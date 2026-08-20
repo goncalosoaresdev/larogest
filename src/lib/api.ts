@@ -94,6 +94,10 @@ export function isPushKey(value: string, min = 8, max = 256) {
   return value.length >= min && value.length <= max && /^[A-Za-z0-9+/=_-]+$/.test(value);
 }
 
+export function isApnsToken(value: string) {
+  return /^[0-9a-f]{64,200}$/i.test(value.replace(/\s/g, ""));
+}
+
 export function resetRateLimitForTests() {
   buckets.clear();
 }

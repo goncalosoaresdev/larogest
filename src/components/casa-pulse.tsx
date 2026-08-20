@@ -188,7 +188,7 @@ export function CasaPulseView({
                 />
               ) : null}
               {tab === "historico" ? <HistoryPane siteId={siteId} devices={sensors} now={clock} /> : null}
-              {tab === "alertas" ? <AlertsPane alerts={live.alerts} siteId={siteId} /> : null}
+              {tab === "alertas" ? <AlertsPane alerts={live.alerts} /> : null}
               {tab === "definicoes" ? <CasaSettings siteId={siteId} canSignOut={canSignOut} /> : null}
             </div>
           </main>
@@ -810,14 +810,14 @@ function historyTone(sample: CasaHistorySample) {
   return "ok";
 }
 
-function AlertsPane({ alerts, siteId }: { alerts: CasaOwnerAlert[]; siteId: string }) {
+function AlertsPane({ alerts }: { alerts: CasaOwnerAlert[] }) {
   const { locale, t } = useCasaLocale();
   if (alerts.length === 0) {
     return (
       <div className="casa-pane">
         <h2>{t("alerts.emptyTitle")}</h2>
         <p className="casa-pane-lead">{t("alerts.emptyLead")}</p>
-        <CasaPushEnable siteId={siteId} />
+        <CasaPushEnable />
       </div>
     );
   }
@@ -836,7 +836,7 @@ function AlertsPane({ alerts, siteId }: { alerts: CasaOwnerAlert[]; siteId: stri
           </li>
         ))}
       </ol>
-      <CasaPushEnable siteId={siteId} />
+      <CasaPushEnable />
     </div>
   );
 }

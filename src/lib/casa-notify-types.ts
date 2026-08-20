@@ -54,3 +54,16 @@ export function allowCasaNotify(prefs: CasaNotifyPrefs, type: PulseAlertType) {
   if (type === "TEMP_HIGH" || type === "TEMP_LOW" || type === "HUMIDITY_HIGH") return prefs.climate;
   return false;
 }
+
+export function selectCasaPushAlerts<T extends { type: PulseAlertType }>(
+  opened: T[],
+  prefs: CasaNotifyPrefs,
+  now = new Date(),
+) {
+  if (!prefs.push) return [];
+  let alerts = opened.filter((item) => allowCasaNotify(prefs, item.type));
+  if (isCasaQuietHour(prefs, now)) {
+    alerts = alerts.filter((item) => item.type === "WATER_LEAK" || item.type === "MOTION");
+  }
+  return alerts;
+}

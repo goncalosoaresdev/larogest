@@ -9,6 +9,7 @@ import {
   personEmailMatches,
   rememberLocalOwnerOtp,
   safeCasaNext,
+  siteOwnerLookup,
   takeLocalOwnerOtp,
 } from "./owner-auth-core";
 
@@ -54,6 +55,15 @@ describe("ownerCanAccessSite", () => {
     assert.equal(ownerCanAccessSite(user, { userId: null, email: "Maria@Laro.PT" }), true);
     assert.equal(ownerCanAccessSite(user, { userId: "u2", email: "outra@laro.pt" }), false);
     assert.equal(ownerCanAccessSite(user, { userId: "u2", email: "maria@laro.pt" }), false);
+  });
+});
+
+describe("siteOwnerLookup", () => {
+  it("prefers the linked user and only falls back to email when unlinked", () => {
+    assert.deepEqual(siteOwnerLookup({ userId: "u1", email: "outra@laro.pt" }), { by: "userId", userId: "u1" });
+    assert.deepEqual(siteOwnerLookup({ userId: null, email: "Maria@Laro.PT" }), { by: "email", email: "maria@laro.pt" });
+    assert.equal(siteOwnerLookup({ userId: null, email: null }), null);
+    assert.equal(siteOwnerLookup({ userId: null, email: "   " }), null);
   });
 });
 

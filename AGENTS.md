@@ -77,7 +77,7 @@ Read bundled docs under `node_modules/next/dist/docs/` before writing framework 
 
 ## Security
 
-- Never log tokens, OTP codes, VAPID keys, Tuya secrets, or session cookies.
+- Never log tokens, OTP codes, VAPID keys, APNs tokens, Tuya secrets, or session cookies.
 - Proposal / contract public tokens (`/p/`, `/c/`) are unguessable IDs. Casa is session-gated (`/api/casa/[siteId]/*`); rate-limit with `limited`. Do not restore capability URLs on Pulse sites.
 - Owner login is email OTP (`src/lib/owner-auth.ts`). Website: `/casa/entrar`. Mobile REST: `POST /api/casa/auth/otp`, `POST /api/casa/auth/verify` (returns a session token), `POST /api/casa/auth/sign-out`, `GET /api/casa`. Only `User.role === "OWNER"` may use those endpoints; staff stay on email + password. Never log OTP codes.
 - Do not weaken `src/lib/storage.ts` path checks or serve files outside `storage/pdfs`.

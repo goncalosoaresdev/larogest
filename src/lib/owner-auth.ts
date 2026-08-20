@@ -10,6 +10,7 @@ export {
   personEmailMatches,
   rememberLocalOwnerOtp,
   safeCasaNext,
+  siteOwnerLookup,
   takeLocalOwnerOtp,
 } from "@/lib/owner-auth-core";
 

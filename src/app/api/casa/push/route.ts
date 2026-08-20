@@ -1,17 +1,13 @@
 import { isHttpsUrl, isPushKey, jsonError, jsonOk, limited, parseJsonBody } from "@/lib/api";
-import { requireCasaApiSite } from "@/lib/casa";
+import { requireCasaApiOwner } from "@/lib/casa";
 import { prisma } from "@/lib/prisma";
 import { vapidConfig } from "@/lib/vapid";
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ siteId: string }> },
-) {
+export async function GET(request: Request) {
   const blocked = limited(request, "casa-push", 30);
   if (blocked) return blocked;
   try {
-    const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId, request);
+    const access = await requireCasaApiOwner(request);
     if (access.error) return access.error;
     const vapid = vapidConfig();
     if (!vapid) return jsonError(503, "push_unconfigured");
@@ -22,15 +18,11 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ siteId: string }> },
-) {
+export async function POST(request: Request) {
   const blocked = limited(request, "casa-push-write", 20);
   if (blocked) return blocked;
   try {
-    const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId, request);
+    const access = await requireCasaApiOwner(request);
     if (access.error) return access.error;
 
     const body = await parseJsonBody<{
@@ -41,18 +33,21 @@ export async function POST(
       return jsonError(400, "invalid_body");
     }
 
-    await prisma.pulsePushSubscription.upsert({
+    await prisma.casaPushDevice.upsert({
       where: { endpoint: body.endpoint },
       create: {
-        siteId: access.site.id,
+        userId: access.session.user.id,
+        platform: "WEB",
         endpoint: body.endpoint,
         p256dh: body.keys!.p256dh!,
         auth: body.keys!.auth!,
       },
       update: {
-        siteId: access.site.id,
+        userId: access.session.user.id,
+        platform: "WEB",
         p256dh: body.keys!.p256dh!,
         auth: body.keys!.auth!,
+        apnsToken: null,
       },
     });
 
@@ -63,22 +58,18 @@ export async function POST(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ siteId: string }> },
-) {
+export async function DELETE(request: Request) {
   const blocked = limited(request, "casa-push-write", 20);
   if (blocked) return blocked;
   try {
-    const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId, request);
+    const access = await requireCasaApiOwner(request);
     if (access.error) return access.error;
 
     const body = await parseJsonBody<{ endpoint?: string }>(request);
     if (body?.endpoint) {
       if (!isHttpsUrl(body.endpoint)) return jsonError(400, "invalid_body");
-      await prisma.pulsePushSubscription.deleteMany({
-        where: { siteId: access.site.id, endpoint: body.endpoint },
+      await prisma.casaPushDevice.deleteMany({
+        where: { userId: access.session.user.id, endpoint: body.endpoint },
       });
     }
     return jsonOk({ ok: true });

@@ -52,6 +52,15 @@ export function ownerCanAccessSite(
   return personEmailMatches(person.email, user.email);
 }
 
+export type SiteOwnerLookup = { by: "userId"; userId: string } | { by: "email"; email: string };
+
+export function siteOwnerLookup(person: { userId: string | null; email: string | null }): SiteOwnerLookup | null {
+  if (person.userId) return { by: "userId", userId: person.userId };
+  const email = person.email ? normalizeOwnerEmail(person.email) : "";
+  if (!email) return null;
+  return { by: "email", email };
+}
+
 export function safeCasaNext(value: string | null | undefined) {
   if (!value) return null;
   const path = value.split(/[?#]/, 1)[0] ?? "";

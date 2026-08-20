@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildCasaDay, humidityAt, smoothPath, startOfLisbonDay } from "./casa-day";
+import type { PulseAlertType, PulseSample } from "@prisma/client";
+import { buildCasaDay, casaAlertReadout, humidityAt, smoothPath, startOfLisbonDay } from "./casa-day";
 import type { CasaOwnerDevice } from "./casa";
 
 describe("humidityAt", () => {
@@ -79,8 +80,96 @@ describe("buildCasaDay", () => {
     assert.equal(day.humidity, 55);
     assert.ok(day.points.length >= 1);
     assert.ok(day.marks.some((mark) => mark.id === "now" && mark.kind === "now"));
-    assert.ok(day.marks.some((mark) => mark.id === "leak" && mark.tone === "alert"));
+    assert.ok(day.marks.some((mark) => mark.id === "leak" && mark.tone === "alert" && mark.alertType === "WATER_LEAK"));
     assert.equal(day.marks.some((mark) => mark.id === "old"), false);
     assert.ok(day.ticks.some((tick) => tick.now));
   });
+
+  it("attaches the matching reading for every alert type", () => {
+    const now = new Date("2026-01-15T15:00:00Z");
+    const climate: CasaOwnerDevice = {
+      id: "climate-1",
+      kind: "TEMP_HUMIDITY",
+      label: "Clima",
+      online: true,
+      lastSeenAt: now.toISOString(),
+      batteryPct: 80,
+      reading: { humidity: 55, temperature: 21 },
+    };
+    const water: CasaOwnerDevice = {
+      id: "water-1",
+      kind: "WATER",
+      label: "Cozinha",
+      online: true,
+      lastSeenAt: now.toISOString(),
+      batteryPct: 12,
+      reading: { leak: false },
+    };
+    const noon = new Date("2026-01-15T12:00:00Z");
+    const two = new Date("2026-01-15T14:00:00Z");
+    const day = buildCasaDay({
+      devices: [climate, water],
+      alerts: [
+        { id: "hum", type: "HUMIDITY_HIGH", status: "OPEN", triggeredAt: noon, deviceId: climate.id },
+        { id: "cold", type: "TEMP_LOW", status: "OPEN", triggeredAt: noon, deviceId: climate.id },
+        { id: "hot", type: "TEMP_HIGH", status: "OPEN", triggeredAt: two, deviceId: climate.id },
+        { id: "bat", type: "BATTERY", status: "OPEN", triggeredAt: noon, deviceId: water.id },
+        { id: "leak", type: "WATER_LEAK", status: "OPEN", triggeredAt: two, deviceId: water.id },
+        { id: "motion", type: "MOTION", status: "OPEN", triggeredAt: two },
+        { id: "door", type: "DOOR_OPEN", status: "OPEN", triggeredAt: two },
+        { id: "off", type: "OFFLINE", status: "OPEN", triggeredAt: two },
+      ],
+      samples: [
+        sample({ id: "c-noon", deviceId: climate.id, recordedAt: noon, humidity: 81, temperature: 9 }),
+        sample({ id: "c-two", deviceId: climate.id, recordedAt: two, humidity: 60, temperature: 33.4 }),
+        sample({ id: "w-noon", deviceId: water.id, recordedAt: noon, batteryPct: 12 }),
+      ],
+      now,
+      locale: "pt",
+    });
+    const mark = (id: string) => day.marks.find((item) => item.id === id);
+    assert.deepEqual(mark("hum")?.readout, { kind: "humidity", value: 81 });
+    assert.deepEqual(mark("cold")?.readout, { kind: "temperature", value: 9 });
+    assert.deepEqual(mark("hot")?.readout, { kind: "temperature", value: 33.4 });
+    assert.deepEqual(mark("bat")?.readout, { kind: "battery", value: 12 });
+    assert.equal(mark("leak")?.readout, undefined);
+    assert.equal(mark("motion")?.readout, undefined);
+    assert.equal(mark("door")?.readout, undefined);
+    assert.equal(mark("off")?.readout, undefined);
+  });
 });
+
+describe("casaAlertReadout", () => {
+  it("maps every Pulse alert type to a reading or to none", () => {
+    const values = { humidity: 82, temperature: 8.4, batteryPct: 12 };
+    const expected: Record<PulseAlertType, ReturnType<typeof casaAlertReadout>> = {
+      HUMIDITY_HIGH: { kind: "humidity", value: 82 },
+      TEMP_HIGH: { kind: "temperature", value: 8.4 },
+      TEMP_LOW: { kind: "temperature", value: 8.4 },
+      BATTERY: { kind: "battery", value: 12 },
+      WATER_LEAK: undefined,
+      DOOR_OPEN: undefined,
+      MOTION: undefined,
+      OFFLINE: undefined,
+    };
+    for (const type of Object.keys(expected) as PulseAlertType[]) {
+      assert.deepEqual(casaAlertReadout(type, values), expected[type]);
+    }
+  });
+});
+
+function sample(
+  partial: Partial<PulseSample> & Pick<PulseSample, "id" | "deviceId" | "recordedAt">,
+): PulseSample {
+  return {
+    temperature: null,
+    humidity: null,
+    leak: null,
+    open: null,
+    motion: null,
+    lux: null,
+    batteryPct: null,
+    online: true,
+    ...partial,
+  };
+}
