@@ -1,5 +1,4 @@
 import type { IoTProvider, Prisma, PulseAlertType, PulseDevice, PulseDeviceKind } from "@prisma/client";
-import { nanoid } from "nanoid";
 import { prisma } from "@/lib/prisma";
 import { getIoTAdapter, matchProviderLocation } from "@/lib/iot";
 import type { ProviderDevice, ProviderLocation } from "@/lib/iot/types";
@@ -134,7 +133,7 @@ export function pulseHouseHeadline(
 
 export async function createEmptyPulseSite(tx: Prisma.TransactionClient, propertyId: string) {
   return tx.pulseSite.create({
-    data: { propertyId, publicToken: nanoid(24) },
+    data: { propertyId },
   });
 }
 
@@ -238,17 +237,6 @@ export async function autoLinkUnlinkedSites() {
     }
   }
   return linked;
-}
-
-export async function ensurePulsePublicToken(siteId: string) {
-  const site = await prisma.pulseSite.findUnique({ where: { id: siteId } });
-  if (!site) throw new Error("Pulse não encontrado");
-  if (site.publicToken) return site.publicToken;
-  const updated = await prisma.pulseSite.update({
-    where: { id: siteId },
-    data: { publicToken: nanoid(24) },
-  });
-  return updated.publicToken!;
 }
 
 export function sortPulseDevices(devices: PulseDevice[]) {

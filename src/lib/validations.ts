@@ -43,6 +43,7 @@ export const visitFormSchema = z.object({
 
 export const pulseSiteSchema = z.object({
   ownerName: z.string().min(2, "Indica o proprietário"),
+  email: z.string().trim().email("Email inválido"),
   address: z.string().min(3, "Indica a morada"),
   city: z.string().optional(),
 });

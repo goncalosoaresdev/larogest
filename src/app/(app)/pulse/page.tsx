@@ -168,6 +168,11 @@ export default async function PulsePage() {
                 </FormField>
               </div>
               <div className="sm:col-span-2">
+                <FormField label="Email do proprietário">
+                  <Input name="email" type="email" required autoComplete="email" />
+                </FormField>
+              </div>
+              <div className="sm:col-span-2">
                 <FormField label="Morada">
                   <Input name="address" required />
                 </FormField>

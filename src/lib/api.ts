@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, getSessionRole } from "@/lib/session";
 
 const NO_STORE = {
   "Cache-Control": "private, no-store",
@@ -54,7 +54,9 @@ export function limited(request: Request, name: string, limit: number) {
 
 export async function requireApiSession() {
   const session = await getSession();
-  if (!session) return { session: null, error: jsonError(401, "Não autenticado") };
+  if (!session || getSessionRole(session) !== "STAFF") {
+    return { session: null, error: jsonError(401, "Não autenticado") };
+  }
   return { session, error: null };
 }
 

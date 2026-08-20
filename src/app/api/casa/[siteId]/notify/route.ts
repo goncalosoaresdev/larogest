@@ -1,33 +1,23 @@
-import { isCasaToken, jsonError, jsonOk, limited } from "@/lib/api";
+import { jsonError, jsonOk, limited } from "@/lib/api";
+import { requireCasaApiSite } from "@/lib/casa";
 import { DEFAULT_CASA_NOTIFY, parseClockMinutes, saveCasaNotifyPrefs, type CasaNotifyPrefs } from "@/lib/casa-notify";
 import { prisma } from "@/lib/prisma";
-import { isPulseSiteActive } from "@/lib/pulse";
 
 const BOOLS = ["push", "water", "offline", "battery", "climate", "quietEnabled"] as const;
 const CLOCKS = ["quietStart", "quietEnd"] as const;
 
-async function activeSite(token: string) {
-  if (!isCasaToken(token)) return null;
-  const site = await prisma.pulseSite.findUnique({
-    where: { publicToken: token },
-    select: { id: true, status: true },
-  });
-  if (!site || !isPulseSiteActive(site.status)) return null;
-  return site;
-}
-
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ token: string }> },
+  { params }: { params: Promise<{ siteId: string }> },
 ) {
   const blocked = limited(request, "casa-notify", 60);
   if (blocked) return blocked;
   try {
-    const { token } = await params;
-    const site = await activeSite(token);
-    if (!site) return jsonError(404, "Casa não encontrada");
+    const { siteId } = await params;
+    const access = await requireCasaApiSite(siteId);
+    if (access.error) return access.error;
 
-    const row = await prisma.pulseNotifySettings.findUnique({ where: { siteId: site.id } });
+    const row = await prisma.pulseNotifySettings.findUnique({ where: { siteId: access.site.id } });
     const prefs = row
       ? {
           push: row.push,
@@ -50,14 +40,14 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ token: string }> },
+  { params }: { params: Promise<{ siteId: string }> },
 ) {
   const blocked = limited(request, "casa-notify-write", 40);
   if (blocked) return blocked;
   try {
-    const { token } = await params;
-    const site = await activeSite(token);
-    if (!site) return jsonError(404, "Casa não encontrada");
+    const { siteId } = await params;
+    const access = await requireCasaApiSite(siteId);
+    if (access.error) return access.error;
 
     const body = (await request.json().catch(() => null)) as Partial<CasaNotifyPrefs> | null;
     if (!body || typeof body !== "object") return jsonError(400, "Pedido inválido");
@@ -69,7 +59,7 @@ export async function PATCH(
     for (const key of CLOCKS) {
       if (typeof body[key] === "string" && parseClockMinutes(body[key]) != null) patch[key] = body[key];
     }
-    const prefs = await saveCasaNotifyPrefs(site.id, patch);
+    const prefs = await saveCasaNotifyPrefs(access.site.id, patch);
     return jsonOk(prefs);
   } catch (error) {
     console.error(error);

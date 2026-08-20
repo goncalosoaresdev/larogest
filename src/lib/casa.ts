@@ -1,5 +1,6 @@
 import type { PulseAlert, PulseDevice, PulseSample } from "@prisma/client";
-import { isCasaToken } from "@/lib/api";
+import { jsonError } from "@/lib/api";
+import { ownerCanAccessSite } from "@/lib/owner-auth";
 import { prisma } from "@/lib/prisma";
 import { buildCasaDay, startOfLisbonDay } from "@/lib/casa-day";
 import {
@@ -12,6 +13,7 @@ import {
   type PulseReading,
   type PulseSeverity,
 } from "@/lib/pulse";
+import { getSession, getSessionRole, type AuthSession } from "@/lib/session";
 
 export type CasaTone = "ok" | "warn" | "alert" | "offline" | "idle";
 
@@ -73,7 +75,7 @@ export type CasaSnapshot = {
 };
 
 export type CasaHouseOption = {
-  token: string;
+  siteId: string;
   name: string;
   address: string;
   city: string | null;
@@ -109,6 +111,11 @@ export type CasaHouse = {
   now: Date;
 };
 
+type CasaSitePerson = {
+  id: string;
+  property: { person: { userId: string | null; email: string | null } };
+};
+
 export function toCasaOwnerDevice(device: PulseDevice): CasaOwnerDevice {
   return {
     id: device.id,
@@ -135,12 +142,79 @@ export function casaHouseName(city: string | null, address: string) {
   return city ? `Casa de ${city}` : address || "A sua casa";
 }
 
-export async function loadCasaHouse(token: string): Promise<CasaHouse | null> {
-  if (!isCasaToken(token)) return null;
+export function canAccessCasaSite(session: AuthSession, site: CasaSitePerson) {
+  const role = getSessionRole(session);
+  if (role === "STAFF") return true;
+  if (role !== "OWNER") return false;
+  return ownerCanAccessSite(session.user, site.property.person);
+}
+
+export async function requireCasaApiSite(siteId: string) {
+  const session = await getSession();
+  if (!session?.user) return { site: null, error: jsonError(401, "Não autenticado") };
+
+  const site = await prisma.pulseSite.findUnique({
+    where: { id: siteId },
+    include: { property: { include: { person: true } } },
+  });
+  if (!site || !isPulseSiteActive(site.status) || !canAccessCasaSite(session, site)) {
+    return { site: null, error: jsonError(404, "Casa não encontrada") };
+  }
+
+  return { site, error: null };
+}
+
+export async function listOwnerHouses(userId: string): Promise<CasaHouseOption[]> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (!user?.email) return [];
+
+  const sites = await prisma.pulseSite.findMany({
+    where: {
+      status: { not: PULSE_SITE_DISABLED },
+      property: {
+        person: {
+          OR: [
+            { userId },
+            { userId: null, email: { equals: user.email, mode: "insensitive" } },
+          ],
+        },
+      },
+    },
+    select: {
+      id: true,
+      property: { select: { address: true, city: true } },
+    },
+    orderBy: [{ property: { city: "asc" } }, { property: { address: "asc" } }],
+  });
+
+  return sites.map((site) => ({
+    siteId: site.id,
+    name: casaHouseName(site.property.city, site.property.address),
+    address: site.property.address,
+    city: site.property.city,
+  }));
+}
+
+function toHouseOption(site: {
+  id: string;
+  property: { address: string; city: string | null };
+}): CasaHouseOption {
+  return {
+    siteId: site.id,
+    name: casaHouseName(site.property.city, site.property.address),
+    address: site.property.address,
+    city: site.property.city,
+  };
+}
+
+export async function loadCasaHouse(siteId: string): Promise<CasaHouse | null> {
   const now = new Date();
   const start = startOfLisbonDay(now);
   const site = await prisma.pulseSite.findUnique({
-    where: { publicToken: token },
+    where: { id: siteId },
     include: {
       property: { include: { person: true } },
       devices: true,
@@ -161,11 +235,10 @@ export async function loadCasaHouse(token: string): Promise<CasaHouse | null> {
   const siblings = await prisma.pulseSite.findMany({
     where: {
       status: { not: PULSE_SITE_DISABLED },
-      publicToken: { not: null },
       property: { personId: site.property.personId },
     },
     select: {
-      publicToken: true,
+      id: true,
       property: { select: { address: true, city: true } },
     },
     orderBy: [{ property: { city: "asc" } }, { property: { address: "asc" } }],
@@ -176,17 +249,7 @@ export async function loadCasaHouse(token: string): Promise<CasaHouse | null> {
     address: site.property.address,
     city: site.property.city,
     status: site.status,
-    houses: siblings.flatMap((item) => {
-      if (!item.publicToken) return [];
-      return [
-        {
-          token: item.publicToken,
-          name: casaHouseName(item.property.city, item.property.address),
-          address: item.property.address,
-          city: item.property.city,
-        },
-      ];
-    }),
+    houses: siblings.map(toHouseOption),
     devices: sortPulseDevices(site.devices).map(toCasaOwnerDevice),
     alerts: site.alerts.map(toCasaOwnerAlert),
     samples: await loadCasaSamples(site.id, start),
@@ -257,8 +320,8 @@ export function toCasaSnapshot(house: CasaHouse): CasaSnapshot {
   };
 }
 
-export async function getCasaSnapshot(token: string) {
-  const house = await loadCasaHouse(token);
+export async function getCasaSnapshot(siteId: string) {
+  const house = await loadCasaHouse(siteId);
   return house ? toCasaSnapshot(house) : null;
 }
 
@@ -269,12 +332,11 @@ export type CasaLive = {
   samples: PulseSample[];
 };
 
-export async function loadCasaLive(token: string): Promise<CasaLive | null> {
-  if (!isCasaToken(token)) return null;
+export async function loadCasaLive(siteId: string): Promise<CasaLive | null> {
   const now = new Date();
   const start = startOfLisbonDay(now);
   const site = await prisma.pulseSite.findUnique({
-    where: { publicToken: token },
+    where: { id: siteId },
     include: {
       devices: true,
       alerts: {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import Image from "next/image";
 import Link from "next/link";
 import type { PulseSample } from "@prisma/client";
-import type { CasaOwnerAlert, CasaOwnerDevice } from "@/lib/casa";
+import type { CasaHouseOption, CasaLive, CasaOwnerAlert, CasaOwnerDevice } from "@/lib/casa";
 import { format, startOfDay } from "date-fns";
 import { CasaTodayChart } from "@/components/casa-today-chart";
 import { pulseDeviceSeverity } from "@/lib/pulse";
@@ -12,7 +12,6 @@ import { CasaPushEnable } from "@/components/casa-push-enable";
 import { CasaSettings } from "@/components/casa-settings";
 import { useCasaLocale } from "@/components/use-casa-locale";
 import type { CasaHistoryCursor, CasaHistorySample } from "@/lib/casa-history";
-import type { CasaLive } from "@/lib/casa";
 import {
   casaAlertTypeLabel,
   casaDateLocale,
@@ -35,13 +34,6 @@ type Tone = "ok" | "warn" | "alert" | "offline" | "idle";
 const TABS: Tab[] = ["casa", "historico", "alertas", "laro"];
 const LIVE_MS = 60_000;
 
-type CasaHouseLink = {
-  token: string;
-  name: string;
-  address: string;
-  city: string | null;
-};
-
 export function CasaPulseView({
   ownerName,
   address,
@@ -50,8 +42,9 @@ export function CasaPulseView({
   alerts,
   samples = [],
   now,
-  token,
+  siteId,
   houses = [],
+  canSignOut = true,
 }: {
   ownerName: string;
   address: string;
@@ -60,8 +53,9 @@ export function CasaPulseView({
   alerts: CasaOwnerAlert[];
   samples?: PulseSample[];
   now: string;
-  token: string;
-  houses?: CasaHouseLink[];
+  siteId: string;
+  houses?: CasaHouseOption[];
+  canSignOut?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("casa");
   const [scrolled, setScrolled] = useState(false);
@@ -79,7 +73,7 @@ export function CasaPulseView({
 
   useEffect(() => {
     setLive({ devices, alerts, samples, now });
-  }, [token]);
+  }, [siteId]);
 
   useEffect(() => {
     if (tab !== "casa" && tab !== "alertas") return;
@@ -89,7 +83,7 @@ export function CasaPulseView({
     async function pull() {
       if (document.visibilityState !== "visible") return;
       try {
-        const response = await fetch(`/api/casa/${token}/live`);
+        const response = await fetch(`/api/casa/${siteId}/live`);
         if (!response.ok || cancelled) return;
         const next = (await response.json()) as CasaLive;
         if (cancelled) return;
@@ -120,7 +114,7 @@ export function CasaPulseView({
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [tab, token]);
+  }, [tab, siteId]);
 
   useEffect(() => {
     const node = screen.current;
@@ -144,7 +138,7 @@ export function CasaPulseView({
               <span className="casa-brand-mark" aria-hidden="true" />
               <span className="casa-brand-badge">Pulse</span>
             </strong>
-            <CasaPlaceSwitch currentToken={token} propertyName={propertyName} houses={houses} />
+            <CasaPlaceSwitch currentSiteId={siteId} propertyName={propertyName} houses={houses} />
             <div className="casa-account">
               <button
                 type="button"
@@ -189,10 +183,10 @@ export function CasaPulseView({
                   now={clock}
                 />
               ) : null}
-              {tab === "historico" ? <HistoryPane token={token} devices={sensors} now={clock} /> : null}
-              {tab === "alertas" ? <AlertsPane alerts={live.alerts} token={token} /> : null}
-              {tab === "laro" ? <LaroPane tone={tone} token={token} /> : null}
-              {tab === "definicoes" ? <CasaSettings token={token} /> : null}
+              {tab === "historico" ? <HistoryPane siteId={siteId} devices={sensors} now={clock} /> : null}
+              {tab === "alertas" ? <AlertsPane alerts={live.alerts} siteId={siteId} /> : null}
+              {tab === "laro" ? <LaroPane tone={tone} siteId={siteId} /> : null}
+              {tab === "definicoes" ? <CasaSettings siteId={siteId} canSignOut={canSignOut} /> : null}
             </div>
           </main>
 
@@ -227,13 +221,13 @@ export function CasaPulseView({
 }
 
 function CasaPlaceSwitch({
-  currentToken,
+  currentSiteId,
   propertyName,
   houses,
 }: {
-  currentToken: string;
+  currentSiteId: string;
   propertyName: string;
-  houses: CasaHouseLink[];
+  houses: CasaHouseOption[];
 }) {
   const { locale, t } = useCasaLocale();
   const [open, setOpen] = useState(false);
@@ -274,12 +268,12 @@ function CasaPlaceSwitch({
           <button type="button" className="casa-place-scrim" aria-label={t("house.close")} onClick={() => setOpen(false)} />
           <ul className="casa-place-menu" role="listbox" aria-label={t("house.list")}>
             {houses.map((house) => {
-              const current = house.token === currentToken;
+              const current = house.siteId === currentSiteId;
               const name = casaHouseTitle(locale, house.city, house.address);
               return (
-                <li key={house.token}>
+                <li key={house.siteId}>
                   <Link
-                    href={`/casa/${house.token}`}
+                    href={`/casa/${house.siteId}`}
                     role="option"
                     aria-selected={current}
                     className={current ? "is-current" : undefined}
@@ -607,11 +601,11 @@ function SensorBattery({ pct }: { pct: number | null }) {
 }
 
 function HistoryPane({
-  token,
+  siteId,
   devices,
   now,
 }: {
-  token: string;
+  siteId: string;
   devices: CasaOwnerDevice[];
   now: Date;
 }) {
@@ -636,7 +630,7 @@ function HistoryPane({
     setDone(false);
     setStatus("loading");
 
-    void fetchHistoryPage(token, { deviceId: filter, signal: ac.signal })
+    void fetchHistoryPage(siteId, { deviceId: filter, signal: ac.signal })
       .then((page) => {
         if (generation.current !== mine) return;
         cursor.current = page.nextCursor;
@@ -656,14 +650,14 @@ function HistoryPane({
       ac.abort();
       busy.current = false;
     };
-  }, [token, filter]);
+  }, [siteId, filter]);
 
   const loadMore = useCallback(() => {
     if (busy.current || !cursor.current) return;
     const mine = generation.current;
     const next = cursor.current;
     busy.current = true;
-    void fetchHistoryPage(token, { deviceId: filter, cursor: next })
+    void fetchHistoryPage(siteId, { deviceId: filter, cursor: next })
       .then((page) => {
         if (generation.current !== mine) return;
         cursor.current = page.nextCursor;
@@ -675,7 +669,7 @@ function HistoryPane({
         if (generation.current !== mine) return;
         busy.current = false;
       });
-  }, [token, filter]);
+  }, [siteId, filter]);
 
   useEffect(() => {
     const node = sentinel.current;
@@ -752,7 +746,7 @@ function HistoryPane({
 }
 
 async function fetchHistoryPage(
-  token: string,
+  siteId: string,
   input: { deviceId: string; cursor?: CasaHistoryCursor | null; signal?: AbortSignal },
 ) {
   const params = new URLSearchParams();
@@ -762,7 +756,7 @@ async function fetchHistoryPage(
     params.set("id", input.cursor.id);
   }
   const query = params.toString();
-  const response = await fetch(`/api/casa/${token}/history${query ? `?${query}` : ""}`, {
+  const response = await fetch(`/api/casa/${siteId}/history${query ? `?${query}` : ""}`, {
     signal: input.signal,
   });
   if (!response.ok) throw new Error("history");
@@ -816,14 +810,14 @@ function historyTone(sample: CasaHistorySample) {
   return "ok";
 }
 
-function AlertsPane({ alerts, token }: { alerts: CasaOwnerAlert[]; token: string }) {
+function AlertsPane({ alerts, siteId }: { alerts: CasaOwnerAlert[]; siteId: string }) {
   const { locale, t } = useCasaLocale();
   if (alerts.length === 0) {
     return (
       <div className="casa-pane">
         <h2>{t("alerts.emptyTitle")}</h2>
         <p className="casa-pane-lead">{t("alerts.emptyLead")}</p>
-        <CasaPushEnable token={token} />
+        <CasaPushEnable siteId={siteId} />
       </div>
     );
   }
@@ -842,12 +836,12 @@ function AlertsPane({ alerts, token }: { alerts: CasaOwnerAlert[]; token: string
           </li>
         ))}
       </ol>
-      <CasaPushEnable token={token} />
+      <CasaPushEnable siteId={siteId} />
     </div>
   );
 }
 
-function LaroPane({ tone, token }: { tone: Tone; token: string }) {
+function LaroPane({ tone, siteId }: { tone: Tone; siteId: string }) {
   const { t } = useCasaLocale();
   return (
     <div className="casa-contact">
@@ -863,7 +857,7 @@ function LaroPane({ tone, token }: { tone: Tone; token: string }) {
       <a className="casa-tel" href="tel:+351931063911">
         +351 931 063 911
       </a>
-      <CasaPushEnable token={token} />
+      <CasaPushEnable siteId={siteId} />
     </div>
   );
 }

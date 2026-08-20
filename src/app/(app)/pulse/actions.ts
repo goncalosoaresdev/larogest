@@ -18,6 +18,7 @@ import {
 import { getIoTAdapter, parseIoTProvider } from "@/lib/iot";
 import { notifyOpenedPulseAlerts } from "@/lib/pulse-notify";
 import { pulseLocationSchema, pulseReadingSchema, pulseSiteSchema } from "@/lib/validations";
+import { isStaffEmail, normalizeOwnerEmail } from "@/lib/owner-auth";
 
 function emptyToNull(value: FormDataEntryValue | null) {
   const text = String(value ?? "").trim();
@@ -60,15 +61,23 @@ export async function createPulseSite(formData: FormData): Promise<void> {
   const session = await requireSession();
   const parsed = pulseSiteSchema.safeParse({
     ownerName: formData.get("ownerName"),
+    email: formData.get("email"),
     address: formData.get("address"),
     city: formData.get("city") || undefined,
   });
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Dados inválidos");
   }
+  if (await isStaffEmail(parsed.data.email)) {
+    throw new Error("Este email pertence à equipa Laro. Usa o email do proprietário.");
+  }
 
   const person = await prisma.person.create({
-    data: { name: parsed.data.ownerName, type: "INDIVIDUAL" },
+    data: {
+      name: parsed.data.ownerName,
+      email: normalizeOwnerEmail(parsed.data.email),
+      type: "INDIVIDUAL",
+    },
   });
   const property = await prisma.property.create({
     data: {
@@ -90,9 +99,15 @@ export async function activatePulseOnProperty(formData: FormData): Promise<void>
 
   const property = await prisma.property.findUnique({
     where: { id: propertyId },
-    include: { leads: { orderBy: { createdAt: "desc" }, take: 1 } },
+    include: { person: true, leads: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
   if (!property) throw new Error("Imóvel não encontrado");
+  if (!property.person.email?.trim()) {
+    throw new Error("Adiciona o email do proprietário no imóvel antes de activar o Pulse.");
+  }
+  if (await isStaffEmail(property.person.email)) {
+    throw new Error("Este email pertence à equipa Laro. Usa o email do proprietário.");
+  }
 
   const site = await activateOnProperty(property.id, session.user.id, property.leads[0]?.id);
   revalidatePath("/pulse");
@@ -102,8 +117,17 @@ export async function activatePulseOnProperty(formData: FormData): Promise<void>
 
 export async function activatePulseOnLead(leadId: string): Promise<void> {
   const session = await requireSession();
-  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
-  if (!lead?.propertyId) throw new Error("Esta lead ainda não tem imóvel");
+  const lead = await prisma.lead.findUnique({
+    where: { id: leadId },
+    include: { property: { include: { person: true } } },
+  });
+  if (!lead?.propertyId || !lead.property) throw new Error("Esta lead ainda não tem imóvel");
+  if (!lead.property.person.email?.trim()) {
+    throw new Error("Adiciona o email do proprietário no imóvel antes de activar o Pulse.");
+  }
+  if (await isStaffEmail(lead.property.person.email)) {
+    throw new Error("Este email pertence à equipa Laro. Usa o email do proprietário.");
+  }
 
   const site = await activateOnProperty(lead.propertyId, session.user.id, lead.id);
   revalidatePath(`/leads/${leadId}`);

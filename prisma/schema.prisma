@@ -131,18 +131,25 @@ enum SignerRole {
   OWNER
 }
 
+enum UserRole {
+  STAFF
+  OWNER
+}
+
 model User {
   id            String     @id
   name          String
   email         String
   emailVerified Boolean    @default(false)
   image         String?
+  role          UserRole   @default(STAFF)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   sessions      Session[]
   accounts      Account[]
   assignedLeads Lead[]     @relation("LeadAssignee")
   activities    Activity[]
+  persons       Person[]
 
   @@unique([email])
   @@map("user")
@@ -212,10 +219,15 @@ model Person {
   address     String?
   type        PersonType @default(INDIVIDUAL)
   companyName String?
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   leads       Lead[]
   properties  Property[]
+
+  @@index([email])
+  @@index([userId])
 }
 
 model Property {

@@ -40,14 +40,14 @@ export async function notifyOpenedPulseAlerts(
       pushSubscriptions: true,
     },
   });
-  if (!site?.publicToken) return;
+  if (!site) return;
 
   const primary = alerts.sort((left, right) => urgency(left.type) - urgency(right.type))[0];
   const work = pulseAlertWork(primary.type);
   const address = [site.property.address, site.property.city].filter(Boolean).join(" · ");
   const title = `Laro Pulse · ${work.why}`;
   const body = `${deviceLabel} · ${address}`;
-  const url = `/casa/${site.publicToken}`;
+  const url = `/casa/${siteId}`;
 
   await sendWebPushes(site.pushSubscriptions, { title, body, url });
 }
