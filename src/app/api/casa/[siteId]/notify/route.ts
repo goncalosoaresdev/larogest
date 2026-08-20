@@ -34,7 +34,7 @@ export async function GET(
     return jsonOk(prefs);
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para carregar");
+    return jsonError(500, "server_error");
   }
 }
 
@@ -50,7 +50,7 @@ export async function PATCH(
     if (access.error) return access.error;
 
     const body = (await request.json().catch(() => null)) as Partial<CasaNotifyPrefs> | null;
-    if (!body || typeof body !== "object") return jsonError(400, "Pedido inválido");
+    if (!body || typeof body !== "object") return jsonError(400, "invalid_body");
 
     const patch: Partial<CasaNotifyPrefs> = {};
     for (const key of BOOLS) {
@@ -63,6 +63,6 @@ export async function PATCH(
     return jsonOk(prefs);
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para guardar");
+    return jsonError(500, "server_error");
   }
 }

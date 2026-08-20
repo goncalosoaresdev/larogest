@@ -8,11 +8,11 @@ export async function POST(request: Request) {
   try {
     const headers = authHeadersFrom(request);
     const session = await auth.api.getSession({ headers });
-    if (!session) return jsonError(401, "Não autenticado");
+    if (!session) return jsonError(401, "unauthenticated");
     await auth.api.signOut({ headers });
     return jsonOk({ ok: true });
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para sair");
+    return jsonError(500, "server_error");
   }
 }

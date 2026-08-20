@@ -151,14 +151,14 @@ export function canAccessCasaSite(session: AuthSession, site: CasaSitePerson) {
 
 export async function requireCasaApiSite(siteId: string, request?: Request) {
   const session = await getSession(request);
-  if (!session?.user) return { site: null, error: jsonError(401, "Não autenticado") };
+  if (!session?.user) return { site: null, error: jsonError(401, "unauthenticated") };
 
   const site = await prisma.pulseSite.findUnique({
     where: { id: siteId },
     include: { property: { include: { person: true } } },
   });
   if (!site || !isPulseSiteActive(site.status) || !canAccessCasaSite(session, site)) {
-    return { site: null, error: jsonError(404, "Casa não encontrada") };
+    return { site: null, error: jsonError(404, "not_found") };
   }
 
   return { site, error: null };

@@ -12,10 +12,10 @@ export async function GET(
     const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
     const snapshot = await getCasaSnapshot(access.site.id);
-    if (!snapshot) return jsonError(404, "Casa não encontrada");
+    if (!snapshot) return jsonError(404, "not_found");
     return jsonOk(snapshot);
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para carregar");
+    return jsonError(500, "server_error");
   }
 }

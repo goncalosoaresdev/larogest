@@ -19,7 +19,7 @@ export async function GET(
       where: { id },
       include: { lead: { include: { person: true } } },
     });
-    if (!proposal) return jsonError(404, "PDF indisponível");
+    if (!proposal) return jsonError(404, "not_found");
 
     const pdf = await renderDocumentPdf({
       kind: "Proposta",
@@ -38,6 +38,6 @@ export async function GET(
     });
   } catch (error) {
     console.error(error);
-    return jsonError(500, "PDF indisponível");
+    return jsonError(500, "server_error");
   }
 }

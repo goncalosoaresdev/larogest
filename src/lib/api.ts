@@ -8,12 +8,29 @@ const NO_STORE = {
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
+export type ApiErrorCode =
+  | "invalid_email"
+  | "invalid_otp"
+  | "invalid_body"
+  | "unauthenticated"
+  | "not_found"
+  | "rate_limited"
+  | "server_error"
+  | "push_unconfigured";
+
 export function jsonOk(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: NO_STORE });
 }
 
-export function jsonError(status: number, error: string) {
-  return NextResponse.json({ error }, { status, headers: NO_STORE });
+export function jsonError(status: number, error: ApiErrorCode, extra?: Record<string, string>) {
+  return NextResponse.json({ error }, { status, headers: { ...NO_STORE, ...extra } });
+}
+
+export function ownerAuthErrorCode(issues: { path: PropertyKey[] }[]): ApiErrorCode {
+  const field = issues[0]?.path[0];
+  if (field === "otp") return "invalid_otp";
+  if (field === "email") return "invalid_email";
+  return "invalid_body";
 }
 
 export function isCasaToken(token: string) {
@@ -42,20 +59,13 @@ export function rateLimit(key: string, limit: number, windowMs = 60_000, now = D
 export function limited(request: Request, name: string, limit: number) {
   const result = rateLimit(`${name}:${clientKey(request)}`, limit);
   if (result.ok) return null;
-  return new NextResponse(JSON.stringify({ error: "Demasiados pedidos" }), {
-    status: 429,
-    headers: {
-      ...NO_STORE,
-      "Content-Type": "application/json",
-      "Retry-After": String(result.retryAfter),
-    },
-  });
+  return jsonError(429, "rate_limited", { "Retry-After": String(result.retryAfter) });
 }
 
 export async function requireApiSession() {
   const session = await getSession();
   if (!session || getSessionRole(session) !== "STAFF") {
-    return { session: null, error: jsonError(401, "Não autenticado") };
+    return { session: null, error: jsonError(401, "unauthenticated") };
   }
   return { session, error: null };
 }

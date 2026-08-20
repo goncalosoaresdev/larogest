@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     const session = await getSession(request);
     if (!session || getSessionRole(session) !== "OWNER") {
-      return jsonError(401, "Não autenticado");
+      return jsonError(401, "unauthenticated");
     }
     const houses = await listOwnerHouses(session.user.id);
     return jsonOk({
@@ -21,6 +21,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para carregar");
+    return jsonError(500, "server_error");
   }
 }

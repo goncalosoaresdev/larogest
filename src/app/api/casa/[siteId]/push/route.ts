@@ -14,11 +14,11 @@ export async function GET(
     const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
     const vapid = vapidConfig();
-    if (!vapid) return jsonError(503, "Web Push não configurado");
+    if (!vapid) return jsonError(503, "push_unconfigured");
     return jsonOk({ publicKey: vapid.publicKey });
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para carregar");
+    return jsonError(500, "server_error");
   }
 }
 
@@ -38,7 +38,7 @@ export async function POST(
       keys?: { p256dh?: string; auth?: string };
     }>(request);
     if (!body?.endpoint || !isHttpsUrl(body.endpoint) || !isPushKey(body.keys?.p256dh ?? "") || !isPushKey(body.keys?.auth ?? "", 8, 64)) {
-      return jsonError(400, "Subscrição inválida");
+      return jsonError(400, "invalid_body");
     }
 
     await prisma.pulsePushSubscription.upsert({
@@ -59,7 +59,7 @@ export async function POST(
     return jsonOk({ ok: true });
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para guardar");
+    return jsonError(500, "server_error");
   }
 }
 
@@ -76,7 +76,7 @@ export async function DELETE(
 
     const body = await parseJsonBody<{ endpoint?: string }>(request);
     if (body?.endpoint) {
-      if (!isHttpsUrl(body.endpoint)) return jsonError(400, "Subscrição inválida");
+      if (!isHttpsUrl(body.endpoint)) return jsonError(400, "invalid_body");
       await prisma.pulsePushSubscription.deleteMany({
         where: { siteId: access.site.id, endpoint: body.endpoint },
       });
@@ -84,6 +84,6 @@ export async function DELETE(
     return jsonOk({ ok: true });
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para guardar");
+    return jsonError(500, "server_error");
   }
 }

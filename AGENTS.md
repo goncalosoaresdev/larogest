@@ -59,7 +59,7 @@ Read bundled docs under `node_modules/next/dist/docs/` before writing framework 
 - Request interception is `src/proxy.ts` with a named `proxy` export. Do not add `middleware.ts`.
 - Default to Server Components. Add `"use client"` only for interactivity (forms, charts, live refresh, auth client).
 - Server Actions live in colocated `actions.ts` with `"use server"`. Parse `FormData` through Zod schemas in `src/lib/validations.ts`. Call `requireSession()`, mutate with Prisma, `logActivity` where the rest of the module does, then `revalidatePath` / `redirect`.
-- Route handlers: `params` is a `Promise` — `const { token } = await params`. Use `jsonOk` / `jsonError` / `limited` from `src/lib/api.ts`. User-facing API errors stay Portuguese.
+- Route handlers: `params` is a `Promise` — `const { token } = await params`. Use `jsonOk` / `jsonError` / `limited` from `src/lib/api.ts`. JSON `{ error }` values are stable codes (`invalid_otp`, `unauthenticated`, …), not Portuguese or English sentences. Apps translate. Do not forward Zod issue messages.
 - `src/proxy.ts` is an optimistic cookie/bearer check, not authorization. Staff pages use `requireSession()` (staff-only); owner pages use `requireOwnerSession()` / `canAccessCasaSite`. APIs: staff `requireApiSession()`, Casa `requireCasaApiSite`. Public prefixes: `/login`, `/p/`, `/c/`, `/casa/entrar`, `/api/auth`, `/api/casa/auth`. Owner mobile APIs accept `Authorization: Bearer <session token>` as well as the cookie.
 - Prefer `next/link` and `next/image`. Do not add a Pages Router or a second app root.
 
@@ -106,7 +106,7 @@ Prefer shipped, pure exports in `src/lib/`:
 - Email address/transport resolution (no network)
 - IoT matchers and Tuya status mapping
 - Pulse alert lanes / copy
-- API helpers (token shape, rate limit, PDF `Content-Disposition`, URL/key checks)
+- API helpers (token shape, rate limit, error codes, PDF `Content-Disposition`, URL/key checks)
 - Owner email / Casa next-path helpers (`owner-auth-core.ts`)
 
 Also add or update tests when you change behavior in those modules. New pure helpers should land with tests in the same PR.

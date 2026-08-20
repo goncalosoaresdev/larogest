@@ -12,10 +12,10 @@ export async function GET(
     const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
     const live = await loadCasaLive(access.site.id);
-    if (!live) return jsonError(404, "Casa não encontrada");
+    if (!live) return jsonError(404, "not_found");
     return jsonOk(live);
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para carregar");
+    return jsonError(500, "server_error");
   }
 }

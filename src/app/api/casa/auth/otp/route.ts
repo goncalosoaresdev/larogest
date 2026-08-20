@@ -1,4 +1,4 @@
-import { jsonError, jsonOk, limited, parseJsonBody } from "@/lib/api";
+import { jsonError, jsonOk, limited, ownerAuthErrorCode, parseJsonBody } from "@/lib/api";
 import { sendOwnerSignInOtp } from "@/lib/owner-otp";
 import { authHeadersFrom, requestIp } from "@/lib/request-auth";
 import { ownerOtpEmailSchema } from "@/lib/validations";
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const body = await parseJsonBody<unknown>(request);
     const parsed = ownerOtpEmailSchema.safeParse(body);
     if (!parsed.success) {
-      return jsonError(400, parsed.error.issues[0]?.message ?? "Email inválido");
+      return jsonError(400, ownerAuthErrorCode(parsed.error.issues));
     }
 
     const result = await sendOwnerSignInOtp(parsed.data.email, {
@@ -18,12 +18,12 @@ export async function POST(request: Request) {
       headers: authHeadersFrom(request),
     });
     if (!result.ok) {
-      if (result.error === "rate_limit") return jsonError(429, "Demasiados pedidos");
-      return jsonError(400, "Email inválido");
+      if (result.error === "rate_limit") return jsonError(429, "rate_limited");
+      return jsonError(400, "invalid_email");
     }
     return jsonOk(result);
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para enviar o código");
+    return jsonError(500, "server_error");
   }
 }

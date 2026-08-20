@@ -27,7 +27,7 @@ export function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   if (!sessionCookie && !hasBearerAuthorization(request)) {
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
     if (isCasaPath(pathname)) {
       const login = new URL("/casa/entrar", request.url);

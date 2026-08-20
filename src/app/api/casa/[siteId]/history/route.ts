@@ -19,10 +19,10 @@ export async function GET(
       deviceId: url.searchParams.get("deviceId"),
       cursor: at && id ? { recordedAt: at, id } : null,
     });
-    if (!page) return jsonError(404, "Casa não encontrada");
+    if (!page) return jsonError(404, "not_found");
     return jsonOk(page);
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para carregar");
+    return jsonError(500, "server_error");
   }
 }

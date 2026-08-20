@@ -2,7 +2,7 @@
 
 Use this file as the **source of truth** when implementing a native owner app (iOS / Android / Expo). Do not invent extra auth methods, extra fields, or extra routes. If something is not in this file, it is out of scope for the owner app.
 
-Product: **Laro Pulse** — owners see live sensors and alerts for houses Laro manages. UI copy is Portuguese (`pt-PT`). API error strings are Portuguese; you may display them as-is.
+Product: **Laro Pulse** — owners see live sensors and alerts for houses Laro manages. UI copy is `pt-PT` or English. API errors are **stable codes**, not sentences. Map `error` in the app locale. Do not show the code raw. Do not send `Accept-Language` or a `locale` query — the API does not localize.
 
 Related **website** (do not call from native): owners can also log in in a browser at `/casa/entrar`. Staff CRM (`/login`, `/leads`, …) is a different product. Never use staff email/password login in the owner app.
 
@@ -51,8 +51,8 @@ email → POST /api/casa/auth/otp
 
 - OTP length: **6 digits** (`/^\d{6}$/`).
 - OTP lifetime: **5 minutes**.
-- Wrong codes: generic `401` `{ "error": "Código inválido ou expirado" }` after too many tries as well. Ask the user to request a new code.
-- Server rate-limits OTP send (about **5 / 10 min** per email and per IP, plus ~20 req/min on the route). On `429` show “try again later.”
+- Wrong codes: generic `401` `{ "error": "invalid_otp" }` after too many tries as well. Ask the user to request a new code.
+- Server rate-limits OTP send (about **5 / 10 min** per email and per IP, plus ~20 req/min on the route). On `429` `{ "error": "rate_limited" }` show “try again later.”
 - Token is an opaque session string. Do not parse it. If `401` on an authenticated route, clear token and return to login.
 
 Optional response header on some auth responses: `set-auth-token`. Ignore it; use `token` in the JSON body from verify.
@@ -75,8 +75,36 @@ Headers always include:
 ### Error
 
 ```json
-{ "error": "Portuguese message" }
+{ "error": "invalid_otp" }
 ```
+
+`error` is a machine code. Map it to UI copy. Never display it as-is.
+
+| `error` | Typical status | Meaning |
+| --- | --- | --- |
+| `invalid_email` | `400` | Email missing or not a valid address |
+| `invalid_otp` | `400` or `401` | OTP missing/wrong shape (`400`) or wrong/expired/too many tries (`401`) |
+| `invalid_body` | `400` | JSON missing, not an object, or invalid patch/subscription |
+| `unauthenticated` | `401` | Missing, invalid, or expired session |
+| `not_found` | `404` | House missing, disabled, or not owned by this user |
+| `rate_limited` | `429` | Too many requests. Honor `Retry-After` (seconds) if present |
+| `server_error` | `500` | Server failure |
+| `push_unconfigured` | `503` | Only `/push` when VAPID is not configured — native should not call this |
+
+Suggested UI copy:
+
+| `error` | pt-PT | en |
+| --- | --- | --- |
+| `invalid_email` | Indica um email válido. | Enter a valid email. |
+| `invalid_otp` | Código inválido ou expirado. | Invalid or expired code. |
+| `invalid_body` | Pedido inválido. | Invalid request. |
+| `unauthenticated` | (log out, return to login) | (log out, return to login) |
+| `not_found` | Casa não encontrada. | House not found. |
+| `rate_limited` | Demasiados pedidos. Tenta daqui a pouco. | Too many attempts. Try again in a few minutes. |
+| `server_error` | Não deu para carregar. | Could not load. |
+| `push_unconfigured` | — | — |
+
+Unknown `error` values: use the `server_error` string. Do not parse or sniff the code as a sentence.
 
 | Status | Meaning |
 | --- | --- |
@@ -121,9 +149,9 @@ Responses:
 
 - `200` `{ "ok": true }` — always, if the email is well-formed. A code is emailed **only** if this inbox owns an active Pulse house.
 - `200` in **local/dev only**, may also include `{ "ok": true, "preview": true, "previewCode": "123456" }` when email is written to disk instead of sent. **Never show `previewCode` as a production UI.** Production never includes it.
-- `400` `{ "error": "Email inválido" }`
-- `429` `{ "error": "Demasiados pedidos" }`
-- `500` `{ "error": "Não deu para enviar o código" }`
+- `400` `{ "error": "invalid_email" }` or `{ "error": "invalid_body" }`
+- `429` `{ "error": "rate_limited" }`
+- `500` `{ "error": "server_error" }`
 
 Client UX: after `200`, go to the code screen. Copy: the code was sent if this email has access.
 
@@ -168,9 +196,9 @@ Request:
 
 Errors:
 
-- `400` invalid email/otp shape (`"Email inválido"` or `"Código de 6 dígitos"`)
-- `401` `{ "error": "Código inválido ou expirado" }`
-- `500` `{ "error": "Não deu para entrar" }`
+- `400` `{ "error": "invalid_email" }` / `{ "error": "invalid_otp" }` / `{ "error": "invalid_body" }`
+- `401` `{ "error": "invalid_otp" }`
+- `500` `{ "error": "server_error" }`
 
 ---
 
@@ -179,7 +207,7 @@ Errors:
 Requires `Authorization: Bearer <token>`. Empty body.
 
 - `200` `{ "ok": true }`
-- `401` `{ "error": "Não autenticado" }`
+- `401` `{ "error": "unauthenticated" }`
 
 Always delete the local token after this call, and also if the call fails with `401`.
 
@@ -190,7 +218,7 @@ Always delete the local token after this call, and also if the call fails with `
 Requires bearer. Current user + houses (same `houses` shape as verify).
 
 - `200` `{ "user": { "id", "name", "email" }, "houses": [ ... ] }`
-- `401` `{ "error": "Não autenticado" }`
+- `401` `{ "error": "unauthenticated" }`
 
 Call this on launch if a token exists, to refresh the house list.
 
@@ -221,8 +249,8 @@ Requires bearer. Poll while the house screen is visible (website uses **60s** + 
 }
 ```
 
-- `404` house missing / not owned / disabled
-- `401` no/invalid token
+- `404` `{ "error": "not_found" }` house missing / not owned / disabled
+- `401` `{ "error": "unauthenticated" }`
 
 ---
 
@@ -282,7 +310,7 @@ Booleans: `push`, `water`, `offline`, `battery`, `climate`, `quietEnabled`.
 Clocks: `quietStart`, `quietEnd` as `"HH:mm"` (`00:00`–`23:59`).
 
 `200`: full prefs object (same as GET).  
-`400` `{ "error": "Pedido inválido" }` if body is not an object.
+`400` `{ "error": "invalid_body" }` if body is not an object.
 
 ---
 
@@ -398,12 +426,22 @@ type CasaVerifyResponse = {
   houses: CasaHouse[];
 };
 
-type CasaError = { error: string };
+type CasaErrorCode =
+  | "invalid_email"
+  | "invalid_otp"
+  | "invalid_body"
+  | "unauthenticated"
+  | "not_found"
+  | "rate_limited"
+  | "server_error"
+  | "push_unconfigured";
+
+type CasaError = { error: CasaErrorCode };
 ```
 
 `GET /api/casa/{siteId}` snapshot devices also include `model`, `severity` (`"ok" | "warn" | "alert" | "offline" | "idle"`), and `headline`. Live devices do **not**. Prefer live + list houses for a native home screen.
 
-Suggested labels (pt-PT) if you map enums:
+Suggested labels if you map enums (`kind` / `type` / `headline`). Keep these in the app locale files, same as error codes. pt-PT:
 
 | `kind` | Label |
 | --- | --- |
@@ -420,8 +458,8 @@ Open alerts: `status === "OPEN"`. Water leak: `type === "WATER_LEAK"` or `readin
 
 ## Suggested client flow
 
-1. Cold start: if token in secure storage → `GET /api/casa`. On `401`, delete token, show login.
-2. Login: email screen → `POST .../otp` → code screen → `POST .../verify` → save token → house list or first `siteId`.
+1. Cold start: if token in secure storage → `GET /api/casa`. On `401` / `unauthenticated`, delete token, show login.
+2. Login: email screen → `POST .../otp` → code screen → `POST .../verify` → save token → house list or first `siteId`. Map `error` codes to locale strings; never show the code.
 3. House screen: `GET .../live` on appear; poll ~60s while visible; pause in background.
 4. History: first page without cursor; next pages with `at` + `id`.
 5. Settings: `GET` notify, `PATCH` on toggle. Hide Web Push or map `push` as “alertas” only if you have another channel.
@@ -452,12 +490,12 @@ curl -s -X POST "$BASE/api/casa/auth/otp" \
   -H 'Content-Type: application/json' \
   -d '{"email":"owner@example.com"}'
 
-# 401
+# 401 { "error": "invalid_otp" }
 curl -s -X POST "$BASE/api/casa/auth/verify" \
   -H 'Content-Type: application/json' \
   -d '{"email":"owner@example.com","otp":"000000"}'
 
-# 401
+# 401 { "error": "unauthenticated" }
 curl -s "$BASE/api/casa"
 ```
 
@@ -470,7 +508,8 @@ In local email mode, OTP HTML is written under `storage/emails/` on the server. 
 - [ ] Single API client: base URL + JSON + Bearer interceptor
 - [ ] Login: otp → verify → secure token
 - [ ] Unknown email: same success UX as known email
-- [ ] 401 on any casa GET/PATCH → logout
+- [ ] Map `error` codes to locale strings; never show the code raw
+- [ ] 401 / `unauthenticated` on any casa GET/PATCH → logout
 - [ ] House switcher uses `siteId` from `houses`, not tokens
 - [ ] Live poll cancelled on background
 - [ ] History pagination uses `nextCursor`

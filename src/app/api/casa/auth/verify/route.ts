@@ -1,4 +1,4 @@
-import { jsonError, jsonOk, limited, parseJsonBody } from "@/lib/api";
+import { jsonError, jsonOk, limited, ownerAuthErrorCode, parseJsonBody } from "@/lib/api";
 import { auth } from "@/lib/auth";
 import { listOwnerHouses } from "@/lib/casa";
 import { authHeadersFrom } from "@/lib/request-auth";
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const body = await parseJsonBody<unknown>(request);
     const parsed = ownerOtpVerifySchema.safeParse(body);
     if (!parsed.success) {
-      return jsonError(400, parsed.error.issues[0]?.message ?? "Dados inválidos");
+      return jsonError(400, ownerAuthErrorCode(parsed.error.issues));
     }
 
     let signedIn;
@@ -21,12 +21,12 @@ export async function POST(request: Request) {
         headers: authHeadersFrom(request),
       });
     } catch {
-      return jsonError(401, "Código inválido ou expirado");
+      return jsonError(401, "invalid_otp");
     }
 
     const role = "role" in signedIn.user ? signedIn.user.role : undefined;
     if (!signedIn.token || role !== "OWNER") {
-      return jsonError(401, "Código inválido ou expirado");
+      return jsonError(401, "invalid_otp");
     }
 
     const houses = await listOwnerHouses(signedIn.user.id);
@@ -41,6 +41,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error(error);
-    return jsonError(500, "Não deu para entrar");
+    return jsonError(500, "server_error");
   }
 }
