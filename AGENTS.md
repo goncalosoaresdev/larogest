@@ -41,6 +41,7 @@ CI (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, and `npm test` without
 | `src/app/casa/entrar/` | Owner login (email OTP) |
 | `src/app/casa/`, `src/app/casa/[siteId]/` | Owner Pulse / Casa PWA (session) |
 | `src/app/api/` | Route handlers (`auth`, `casa`, PDF files) |
+| `docs/casa-owner-mobile-api.md` | Owner mobile REST spec — point a mobile-app agent at this file |
 | `src/app/(app)/**/actions.ts` | `"use server"` mutations |
 | `src/components/` | App UI; `src/components/ui/` is shadcn — do not hand-roll duplicates |
 | `src/lib/` | Domain logic, validations, Prisma, auth, Pulse, IoT |
@@ -59,7 +60,7 @@ Read bundled docs under `node_modules/next/dist/docs/` before writing framework 
 - Default to Server Components. Add `"use client"` only for interactivity (forms, charts, live refresh, auth client).
 - Server Actions live in colocated `actions.ts` with `"use server"`. Parse `FormData` through Zod schemas in `src/lib/validations.ts`. Call `requireSession()`, mutate with Prisma, `logActivity` where the rest of the module does, then `revalidatePath` / `redirect`.
 - Route handlers: `params` is a `Promise` — `const { token } = await params`. Use `jsonOk` / `jsonError` / `limited` from `src/lib/api.ts`. User-facing API errors stay Portuguese.
-- `src/proxy.ts` is an optimistic cookie check, not authorization. Staff pages use `requireSession()` (staff-only); owner pages use `requireOwnerSession()` / `canAccessCasaSite`. APIs: staff `requireApiSession()`, Casa `requireCasaApiSite`. Public prefixes: `/login`, `/p/`, `/c/`, `/casa/entrar`, `/api/auth`.
+- `src/proxy.ts` is an optimistic cookie/bearer check, not authorization. Staff pages use `requireSession()` (staff-only); owner pages use `requireOwnerSession()` / `canAccessCasaSite`. APIs: staff `requireApiSession()`, Casa `requireCasaApiSite`. Public prefixes: `/login`, `/p/`, `/c/`, `/casa/entrar`, `/api/auth`, `/api/casa/auth`. Owner mobile APIs accept `Authorization: Bearer <session token>` as well as the cookie.
 - Prefer `next/link` and `next/image`. Do not add a Pages Router or a second app root.
 
 ## Code style
@@ -78,7 +79,7 @@ Read bundled docs under `node_modules/next/dist/docs/` before writing framework 
 
 - Never log tokens, OTP codes, VAPID keys, Tuya secrets, or session cookies.
 - Proposal / contract public tokens (`/p/`, `/c/`) are unguessable IDs. Casa is session-gated (`/api/casa/[siteId]/*`); rate-limit with `limited`. Do not restore capability URLs on Pulse sites.
-- Owner login is email OTP (`src/lib/owner-auth.ts`). Only `User.role === "OWNER"` may use those endpoints; staff stay on email + password. Never log OTP codes.
+- Owner login is email OTP (`src/lib/owner-auth.ts`). Website: `/casa/entrar`. Mobile REST: `POST /api/casa/auth/otp`, `POST /api/casa/auth/verify` (returns a session token), `POST /api/casa/auth/sign-out`, `GET /api/casa`. Only `User.role === "OWNER"` may use those endpoints; staff stay on email + password. Never log OTP codes.
 - Do not weaken `src/lib/storage.ts` path checks or serve files outside `storage/pdfs`.
 - Auth is better-auth (`src/lib/auth.ts`). Do not add a parallel session store. User roles are `STAFF` | `OWNER`.
 

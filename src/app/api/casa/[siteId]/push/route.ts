@@ -11,7 +11,7 @@ export async function GET(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId);
+    const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
     const vapid = vapidConfig();
     if (!vapid) return jsonError(503, "Web Push não configurado");
@@ -30,7 +30,7 @@ export async function POST(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId);
+    const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
 
     const body = await parseJsonBody<{
@@ -71,7 +71,7 @@ export async function DELETE(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId);
+    const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
 
     const body = await parseJsonBody<{ endpoint?: string }>(request);

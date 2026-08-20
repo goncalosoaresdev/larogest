@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { hasBearerAuthorization, isCasaAuthApiPath } from "@/lib/request-auth";
 
 function isPublicPath(pathname: string) {
   if (pathname === "/") return true;
@@ -8,6 +9,7 @@ function isPublicPath(pathname: string) {
   if (pathname.startsWith("/c/")) return true;
   if (pathname === "/casa/entrar" || pathname.startsWith("/casa/entrar/")) return true;
   if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) return true;
+  if (isCasaAuthApiPath(pathname)) return true;
   return false;
 }
 
@@ -23,7 +25,7 @@ export function proxy(request: NextRequest) {
   }
 
   const sessionCookie = getSessionCookie(request);
-  if (!sessionCookie) {
+  if (!sessionCookie && !hasBearerAuthorization(request)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }

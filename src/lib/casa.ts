@@ -149,8 +149,8 @@ export function canAccessCasaSite(session: AuthSession, site: CasaSitePerson) {
   return ownerCanAccessSite(session.user, site.property.person);
 }
 
-export async function requireCasaApiSite(siteId: string) {
-  const session = await getSession();
+export async function requireCasaApiSite(siteId: string, request?: Request) {
+  const session = await getSession(request);
   if (!session?.user) return { site: null, error: jsonError(401, "Não autenticado") };
 
   const site = await prisma.pulseSite.findUnique({

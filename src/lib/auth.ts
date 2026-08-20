@@ -2,11 +2,11 @@ import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
-import { emailOTP } from "better-auth/plugins";
+import { bearer, emailOTP } from "better-auth/plugins";
 import { prisma } from "@/lib/prisma";
 import { EmailSendError, ownerEmailError, sendEmail } from "@/lib/email";
 import { rememberLocalOwnerOtp } from "@/lib/owner-auth";
-import { normalizeOwnerEmail } from "@/lib/owner-auth-core";
+import { normalizeOwnerEmail, OWNER_OTP_EXPIRES_IN } from "@/lib/owner-auth-core";
 
 const googleEnabled = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
@@ -92,9 +92,10 @@ export const auth = betterAuth({
   },
   plugins: [
     ownerOtpGuard,
+    bearer(),
     emailOTP({
       otpLength: 6,
-      expiresIn: 300,
+      expiresIn: OWNER_OTP_EXPIRES_IN,
       disableSignUp: true,
       storeOTP: "hashed",
       allowedAttempts: 3,

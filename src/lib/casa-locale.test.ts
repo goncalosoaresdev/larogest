@@ -31,8 +31,13 @@ describe("casa locale lookup", () => {
     assert.equal(casaAlertTypeLabel("en", "WATER_LEAK"), "Water leak");
     assert.equal(casaText("pt", "hello.morning"), "Bom dia,");
     assert.equal(casaText("en", "hello.morning"), "Good morning,");
-    assert.equal(casaText("pt", "login.title"), "Entrar na Pulse");
-    assert.equal(casaText("en", "login.title"), "Sign in to Pulse");
+    assert.equal(casaText("pt", "login.title"), "A sua casa, sempre por perto.");
+    assert.equal(casaText("en", "login.title"), "Your house, always nearby.");
+    assert.equal(casaText("pt", "login.emailPlaceholder"), "Email da casa");
+    assert.equal(casaText("pt", "login.secure"), "Acesso seguro por código");
+    assert.equal(casaText("pt", "login.codeHint", { time: "4:32" }), "O código expira em 4:32");
+    assert.equal(casaText("en", "login.codeHint", { time: "4:32" }), "The code expires in 4:32");
+    assert.equal(casaText("pt", "login.codeExpired"), "O código expirou. Pede um novo.");
     assert.equal(casaText("pt", "login.invalidCode"), "Código inválido ou expirado.");
     assert.equal(casaText("pt", "settings.signOut"), "Sair");
     assert.equal(casaText("en", "settings.signOut"), "Sign out");

@@ -7,6 +7,8 @@ import {
   leadStatusSchema,
   proposalFormSchema,
   pulseReadingSchema,
+  ownerOtpEmailSchema,
+  ownerOtpVerifySchema,
   pulseSiteSchema,
   signContractSchema,
   templateSaveSchema,
@@ -116,6 +118,16 @@ describe("signContractSchema", () => {
       }).success,
       false,
     );
+  });
+});
+
+describe("owner OTP API schemas", () => {
+  it("accepts a trimmed email and a 6-digit code", () => {
+    assert.equal(ownerOtpEmailSchema.safeParse({ email: "  maria@laro.pt " }).success, true);
+    assert.equal(ownerOtpEmailSchema.safeParse({ email: "not-an-email" }).success, false);
+    assert.equal(ownerOtpVerifySchema.safeParse({ email: "maria@laro.pt", otp: "123456" }).success, true);
+    assert.equal(ownerOtpVerifySchema.safeParse({ email: "maria@laro.pt", otp: "12" }).success, false);
+    assert.equal(ownerOtpVerifySchema.safeParse({ email: "maria@laro.pt", otp: "12345a" }).success, false);
   });
 });
 

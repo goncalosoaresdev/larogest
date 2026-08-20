@@ -1,16 +1,21 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { requestOwnerOtp } from "@/app/casa/actions";
 import { useCasaLocale } from "@/components/use-casa-locale";
 import { authClient } from "@/lib/auth-client";
-import { safeCasaNext } from "@/lib/owner-auth-core";
+import {
+  formatOtpCountdown,
+  otpSecondsLeft,
+  OWNER_OTP_TTL_MS,
+  safeCasaNext,
+} from "@/lib/owner-auth-core";
 
 export function CasaLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { locale, t, setLocale } = useCasaLocale();
+  const { t } = useCasaLocale();
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -18,6 +23,22 @@ export function CasaLogin() {
   const [error, setError] = useState<string | null>(null);
   const [previewCode, setPreviewCode] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<number | null>(null);
+  const [otpLeft, setOtpLeft] = useState(0);
+  const otpInput = useRef<HTMLInputElement>(null);
+  const otpExpired = step === "code" && otpExpiresAt != null && otpLeft <= 0;
+
+  useEffect(() => {
+    if (step === "code") otpInput.current?.focus();
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== "code" || otpExpiresAt == null) return;
+    const tick = () => setOtpLeft(otpSecondsLeft(otpExpiresAt, Date.now()));
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => window.clearInterval(id);
+  }, [step, otpExpiresAt]);
 
   async function onEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,6 +56,9 @@ export function CasaLogin() {
       setPreview(true);
       setPreviewCode(result.previewCode ?? null);
     }
+    const expiresAt = Date.now() + OWNER_OTP_TTL_MS;
+    setOtpExpiresAt(expiresAt);
+    setOtpLeft(otpSecondsLeft(expiresAt, Date.now()));
     setStep("code");
   }
 
@@ -58,93 +82,192 @@ export function CasaLogin() {
     setError(null);
     setPreview(false);
     setPreviewCode(null);
+    setOtpExpiresAt(null);
+    setOtpLeft(0);
   }
 
   return (
-    <div className="casa-login">
-      <header className="casa-login-top">
-        <strong className="casa-brand" aria-label="Laro Pulse">
-          <span className="casa-brand-mark" aria-hidden="true" />
-          <span className="casa-brand-badge">Pulse</span>
-        </strong>
-        <div className="casa-login-langs" role="group" aria-label={t("settings.language")}>
-          <button
-            type="button"
-            className={locale === "pt" ? "is-on" : undefined}
-            aria-pressed={locale === "pt"}
-            onClick={() => setLocale("pt")}
-          >
-            PT
-          </button>
-          <button
-            type="button"
-            className={locale === "en" ? "is-on" : undefined}
-            aria-pressed={locale === "en"}
-            onClick={() => setLocale("en")}
-          >
-            EN
-          </button>
+    <div className="casa-stage">
+      <div className="casa-device">
+        <div className="casa-gate">
+          <div className="casa-gate-art" aria-hidden="true">
+            <img src="/casa-login-house.webp" alt="" />
+          </div>
+
+          <header className="casa-gate-top">
+            <strong className="casa-brand casa-gate-brand" aria-label="Laro Pulse">
+              <span className="casa-brand-mark" aria-hidden="true" />
+              <span className="casa-brand-badge">
+                <PulseMark />
+                Pulse
+              </span>
+            </strong>
+          </header>
+
+          <h1 className="casa-gate-headline">
+            <span>{t("login.headline1")}</span>
+            <span>{t("login.headline2")}</span>
+            <span className="casa-gate-underline">{t("login.headline3")}</span>
+          </h1>
+
+          <div className="casa-gate-card">
+            {step === "email" ? (
+              <form onSubmit={onEmail}>
+                <label className="casa-sr" htmlFor="casa-login-email">
+                  {t("login.email")}
+                </label>
+                <div className="casa-gate-field">
+                  <MailIcon />
+                  <input
+                    id="casa-login-email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder={t("login.emailPlaceholder")}
+                  />
+                </div>
+                {error ? <p className="casa-login-error">{error}</p> : null}
+                <button type="submit" className="casa-gate-submit" disabled={pending}>
+                  <span>{pending ? t("login.sending") : t("login.send")}</span>
+                  <i className="casa-gate-arrow" aria-hidden="true">→</i>
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={onCode}>
+                <p className="casa-login-sent">{t("login.sent")}</p>
+                {previewCode ? (
+                  <p className="casa-login-preview">{t("login.preview", { code: previewCode })}</p>
+                ) : preview ? (
+                  <p className="casa-login-preview">{t("login.previewHint")}</p>
+                ) : null}
+                <label className="casa-sr" htmlFor="casa-login-otp">
+                  {t("login.code")}
+                </label>
+                <div className="casa-gate-otp">
+                  <input
+                    ref={otpInput}
+                    id="casa-login-otp"
+                    name="otp"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    required
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className="casa-gate-otp-input"
+                    aria-describedby="casa-login-otp-hint"
+                  />
+                  <div className="casa-gate-otp-boxes" aria-hidden="true">
+                    {Array.from({ length: 6 }, (_, index) => {
+                      const digit = otp[index];
+                      const active = index === Math.min(otp.length, 5);
+                      return (
+                        <span
+                          key={index}
+                          className={digit ? "is-filled" : active ? "is-on" : undefined}
+                        >
+                          {digit || (active ? <i /> : null)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+                <p
+                  id="casa-login-otp-hint"
+                  className={otpExpired ? "casa-gate-otp-hint is-expired" : "casa-gate-otp-hint"}
+                  aria-live="polite"
+                >
+                  <ClockIcon />
+                  {otpExpired
+                    ? t("login.codeExpired")
+                    : t("login.codeHint", { time: formatOtpCountdown(otpLeft) })}
+                </p>
+                {error ? <p className="casa-login-error">{error}</p> : null}
+                <button type="submit" className="casa-gate-submit" disabled={pending || otpExpired || otp.length !== 6}>
+                  <span>{pending ? t("login.verifying") : t("login.verify")}</span>
+                  <i className="casa-gate-arrow" aria-hidden="true">→</i>
+                </button>
+                <button type="button" className="casa-login-back" onClick={backToEmail}>
+                  {t("login.changeEmail")}
+                </button>
+              </form>
+            )}
+          </div>
+
+          <p className="casa-gate-secure">
+            <LockIcon />
+            {t("login.secure")}
+          </p>
         </div>
-      </header>
-
-      <div className="casa-login-card">
-        <h1>{t("login.title")}</h1>
-        <p className="casa-login-lead">{t("login.lead")}</p>
-
-        {step === "email" ? (
-          <form onSubmit={onEmail}>
-            <label htmlFor="casa-login-email">{t("login.email")}</label>
-            <input
-              id="casa-login-email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={t("login.emailPlaceholder")}
-            />
-            {error ? <p className="casa-login-error">{error}</p> : null}
-            <button type="submit" className="casa-login-submit" disabled={pending}>
-              {pending ? t("login.sending") : t("login.send")}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={onCode}>
-            <p className="casa-login-sent">{t("login.sent")}</p>
-            {previewCode ? (
-              <p className="casa-login-preview">{t("login.preview", { code: previewCode })}</p>
-            ) : preview ? (
-              <p className="casa-login-preview">{t("login.previewHint")}</p>
-            ) : null}
-            <label htmlFor="casa-login-otp">{t("login.code")}</label>
-            <input
-              id="casa-login-otp"
-              name="otp"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              required
-              value={otp}
-              onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-              className="casa-login-code"
-              aria-describedby="casa-login-otp-hint"
-            />
-            <p id="casa-login-otp-hint" className="casa-login-hint">
-              {t("login.codeHint")}
-            </p>
-            {error ? <p className="casa-login-error">{error}</p> : null}
-            <button type="submit" className="casa-login-submit" disabled={pending || otp.length !== 6}>
-              {pending ? t("login.verifying") : t("login.verify")}
-            </button>
-            <button type="button" className="casa-login-back" onClick={backToEmail}>
-              {t("login.changeEmail")}
-            </button>
-          </form>
-        )}
       </div>
     </div>
+  );
+}
+
+function PulseMark() {
+  return (
+    <svg viewBox="0 0 22 10" aria-hidden="true">
+      <path
+        d="M1 5.2h4.2l1.7-3.4 2.4 6.4L12.2 5H21"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.55"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.2" y="5.5" width="17.6" height="13" rx="2.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M4 7.2 12 13l8-5.8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.4" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M12 8.4v4.1l2.6 1.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="6.2" y="10.4" width="11.6" height="9.2" rx="2.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M8.6 10.4V8.3a3.4 3.4 0 0 1 6.8 0v2.1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="15.4" r="1.05" fill="currentColor" />
+    </svg>
   );
 }

@@ -2,6 +2,20 @@ import { z } from "zod";
 
 const ownerEmailSchema = z.string().trim().email();
 
+export const OWNER_OTP_EXPIRES_IN = 300;
+export const OWNER_OTP_TTL_MS = OWNER_OTP_EXPIRES_IN * 1000;
+
+export function otpSecondsLeft(expiresAt: number, now: number) {
+  return Math.max(0, Math.ceil((expiresAt - now) / 1000));
+}
+
+export function formatOtpCountdown(seconds: number) {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mm = Math.floor(safe / 60);
+  const ss = safe % 60;
+  return `${mm}:${String(ss).padStart(2, "0")}`;
+}
+
 const localOtpPreview = new Map<string, { otp: string; at: number }>();
 
 export function normalizeOwnerEmail(email: string) {

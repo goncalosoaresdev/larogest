@@ -14,7 +14,7 @@ export async function GET(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId);
+    const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
 
     const row = await prisma.pulseNotifySettings.findUnique({ where: { siteId: access.site.id } });
@@ -46,7 +46,7 @@ export async function PATCH(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId);
+    const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
 
     const body = (await request.json().catch(() => null)) as Partial<CasaNotifyPrefs> | null;

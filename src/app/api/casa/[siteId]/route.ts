@@ -9,7 +9,7 @@ export async function GET(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId);
+    const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
     const snapshot = await getCasaSnapshot(access.site.id);
     if (!snapshot) return jsonError(404, "Casa não encontrada");

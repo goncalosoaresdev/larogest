@@ -10,7 +10,7 @@ export async function GET(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
-    const access = await requireCasaApiSite(siteId);
+    const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
     const url = new URL(request.url);
     const at = url.searchParams.get("at");

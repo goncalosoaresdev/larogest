@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  formatOtpCountdown,
   isOwnerEmailFormat,
   normalizeOwnerEmail,
+  otpSecondsLeft,
   ownerCanAccessSite,
   personEmailMatches,
   rememberLocalOwnerOtp,
@@ -52,6 +54,21 @@ describe("ownerCanAccessSite", () => {
     assert.equal(ownerCanAccessSite(user, { userId: null, email: "Maria@Laro.PT" }), true);
     assert.equal(ownerCanAccessSite(user, { userId: "u2", email: "outra@laro.pt" }), false);
     assert.equal(ownerCanAccessSite(user, { userId: "u2", email: "maria@laro.pt" }), false);
+  });
+});
+
+describe("otp countdown", () => {
+  it("clamps remaining seconds and formats mm:ss", () => {
+    assert.equal(otpSecondsLeft(10_000, 7_000), 3);
+    assert.equal(otpSecondsLeft(10_000, 9_400), 1);
+    assert.equal(otpSecondsLeft(10_000, 10_000), 0);
+    assert.equal(otpSecondsLeft(10_000, 12_000), 0);
+    assert.equal(formatOtpCountdown(300), "5:00");
+    assert.equal(formatOtpCountdown(299), "4:59");
+    assert.equal(formatOtpCountdown(61), "1:01");
+    assert.equal(formatOtpCountdown(9), "0:09");
+    assert.equal(formatOtpCountdown(0), "0:00");
+    assert.equal(formatOtpCountdown(-4), "0:00");
   });
 });
 

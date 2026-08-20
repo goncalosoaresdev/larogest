@@ -103,6 +103,15 @@ export const companySchema = z.object({
   website: z.string().optional(),
 });
 
+export const ownerOtpEmailSchema = z.object({
+  email: z.string().trim().email("Email inválido"),
+});
+
+export const ownerOtpVerifySchema = z.object({
+  email: z.string().trim().email("Email inválido"),
+  otp: z.string().regex(/^\d{6}$/, "Código de 6 dígitos"),
+});
+
 export const signContractSchema = z.object({
   token: z.string(),
   typedName: z.string().min(2, "Escreve o teu nome"),
