@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  casaAlertMarkLabel,
   casaAlertTypeLabel,
   casaText,
   parseCasaLocale,
@@ -31,6 +32,9 @@ describe("casa locale lookup", () => {
     assert.equal(casaAlertTypeLabel("en", "WATER_LEAK"), "Water leak");
     assert.equal(casaText("pt", "today.temperature"), "temperatura");
     assert.equal(casaText("en", "today.battery"), "battery");
+    assert.equal(casaText("pt", "today.noClimate"), "Ainda sem humidade hoje");
+    assert.equal(casaAlertMarkLabel("pt", "MOTION"), "Movimento");
+    assert.equal(casaAlertMarkLabel("en", "WATER_LEAK"), "Leak");
     assert.equal(casaText("pt", "hello.morning"), "Bom dia,");
     assert.equal(casaText("en", "hello.morning"), "Good morning,");
     assert.equal(casaText("pt", "login.title"), "A sua casa, sempre por perto.");

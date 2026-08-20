@@ -225,6 +225,15 @@ const PT = {
   "today.humidity": "humidade",
   "today.temperature": "temperatura",
   "today.battery": "bateria",
+  "today.noClimate": "Ainda sem humidade hoje",
+  "today.mark.WATER_LEAK": "Fuga",
+  "today.mark.DOOR_OPEN": "Porta",
+  "today.mark.TEMP_HIGH": "Calor",
+  "today.mark.TEMP_LOW": "Frio",
+  "today.mark.HUMIDITY_HIGH": "Humidade",
+  "today.mark.MOTION": "Movimento",
+  "today.mark.BATTERY": "Bateria",
+  "today.mark.OFFLINE": "Sem sinal",
   "today.scrub": "Percorrer o dia da casa",
   "chart.resolved": "resolvida",
   "chart.open": "aberto",
@@ -431,6 +440,15 @@ const EN: Record<CasaTextKey, string> = {
   "today.humidity": "humidity",
   "today.temperature": "temperature",
   "today.battery": "battery",
+  "today.noClimate": "No humidity yet today",
+  "today.mark.WATER_LEAK": "Leak",
+  "today.mark.DOOR_OPEN": "Door",
+  "today.mark.TEMP_HIGH": "Heat",
+  "today.mark.TEMP_LOW": "Cold",
+  "today.mark.HUMIDITY_HIGH": "Humidity",
+  "today.mark.MOTION": "Motion",
+  "today.mark.BATTERY": "Battery",
+  "today.mark.OFFLINE": "Offline",
   "today.scrub": "Browse the house’s day",
   "chart.resolved": "resolved",
   "chart.open": "open",
@@ -485,6 +503,11 @@ export function casaText(locale: CasaLocale, key: CasaTextKey, vars?: Record<str
 
 export function casaAlertTypeLabel(locale: CasaLocale, type: PulseAlertType) {
   const key = `alert.${type}` as CasaTextKey;
+  return casaText(locale, key);
+}
+
+export function casaAlertMarkLabel(locale: CasaLocale, type: PulseAlertType) {
+  const key = `today.mark.${type}` as CasaTextKey;
   return casaText(locale, key);
 }
 

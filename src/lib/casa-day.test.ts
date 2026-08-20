@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PulseAlertType, PulseSample } from "@prisma/client";
-import { buildCasaDay, casaAlertReadout, humidityAt, smoothPath, startOfLisbonDay } from "./casa-day";
+import {
+  buildCasaDay,
+  casaAlertReadout,
+  casaChartChipPlacement,
+  humidityAt,
+  smoothPath,
+  startOfLisbonDay,
+} from "./casa-day";
 import type { CasaOwnerDevice } from "./casa";
 
 describe("humidityAt", () => {
@@ -136,6 +143,17 @@ describe("buildCasaDay", () => {
     assert.equal(mark("motion")?.readout, undefined);
     assert.equal(mark("door")?.readout, undefined);
     assert.equal(mark("off")?.readout, undefined);
+  });
+});
+
+describe("casaChartChipPlacement", () => {
+  it("opens the chip away from the nearer edge of the visible window", () => {
+    const start = Date.parse("2026-01-15T18:00:00Z");
+    const windowMs = 4 * 3_600_000;
+    assert.deepEqual(casaChartChipPlacement(start + 60 * 60_000, start, windowMs), { side: "right", flush: null });
+    assert.deepEqual(casaChartChipPlacement(start + 3 * 3_600_000, start, windowMs), { side: "left", flush: null });
+    assert.equal(casaChartChipPlacement(start + 5 * 60_000, start, windowMs).flush, "start");
+    assert.equal(casaChartChipPlacement(start + windowMs - 5 * 60_000, start, windowMs).flush, "end");
   });
 });
 

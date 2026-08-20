@@ -10,17 +10,18 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
-import type { PulseSample } from "@prisma/client";
+import type { PulseAlertType, PulseSample } from "@prisma/client";
 import type { CasaOwnerAlert, CasaOwnerDevice } from "@/lib/casa";
 import {
   buildCasaDay,
+  casaChartChipPlacement,
   CASA_CHART_WINDOW_MS,
   smoothPath,
   type CasaDay,
   type CasaDayMark,
   type CasaDayReadout,
 } from "@/lib/casa-day";
-import { casaDateLocale, type CasaLocale } from "@/lib/casa-locale";
+import { casaAlertMarkLabel, casaDateLocale, type CasaLocale } from "@/lib/casa-locale";
 import { useCasaLocale } from "@/components/use-casa-locale";
 
 const HEIGHT = 96;
@@ -49,6 +50,7 @@ export function CasaTodayChart({
   const tape = useTape(day);
   const visibleEvents = events.filter((mark) => mark.at >= tape.start && mark.at <= tape.start + tape.windowMs);
   const selected = events.find((mark) => mark.id === selectedId) ?? null;
+  const hasClimate = day.points.length > 0 || day.humidity != null;
   const caption = selected
     ? selected.readout
       ? `${formatClock(selected.at)} ${selected.label}`
@@ -57,9 +59,11 @@ export function CasaTodayChart({
       ? visibleEvents.length === 1
         ? t("today.one")
         : t("today.many", { n: visibleEvents.length })
-      : tape.pinned
-        ? t("today.calm")
-        : t("today.earlier");
+      : !hasClimate
+        ? t("today.noClimate")
+        : tape.pinned
+          ? t("today.calm")
+          : t("today.earlier");
 
   return (
     <section className="casa-today">
@@ -75,6 +79,7 @@ export function CasaTodayChart({
         events={events}
         selected={selected}
         tape={tape}
+        hasClimate={hasClimate}
         onChoose={(id) => setSelectedId((current) => (current === id ? null : id))}
         onClear={() => setSelectedId(null)}
       />
@@ -126,6 +131,7 @@ function DayPlot({
   events,
   selected,
   tape,
+  hasClimate,
   onChoose,
   onClear,
 }: {
@@ -133,20 +139,24 @@ function DayPlot({
   events: CasaDayMark[];
   selected: CasaDayMark | null;
   tape: Tape;
+  hasClimate: boolean;
   onChoose: (id: string) => void;
   onClear: () => void;
 }) {
-  const { t } = useCasaLocale();
+  const { locale, t } = useCasaLocale();
   const gradientId = useId().replace(/:/g, "");
-  const coords = day.points.map((point) => toXy(point.at, point.humidity, day, tape.units));
+  const coords = expandPlotCoords(
+    day.points.map((point) => toXy(point.at, point.humidity, day, tape.units)),
+    tape.units,
+  );
   const line = smoothPath(coords);
   const last = coords[coords.length - 1];
-  const area = line && last
+  const area = line && last && coords.length > 1
     ? `${line} L${last.x.toFixed(2)} ${BOTTOM} L${coords[0].x.toFixed(2)} ${BOTTOM} Z`
     : "";
   const now = day.humidity != null ? toXy(day.nowAt, day.humidity, day, tape.units) : null;
-  const band = comfortBand(day, tape.units);
-  const cursor = selected ? toXy(selected.at, selected.humidity, day, tape.units) : null;
+  const band = hasClimate ? comfortBand(day, tape.units) : null;
+  const empty = !hasClimate && events.length === 0;
 
   return (
     <div className="casa-day">
@@ -175,11 +185,14 @@ function DayPlot({
             >
               <defs>
                 <linearGradient id={`casa-day-fill-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#294337" stopOpacity="0.18" />
+                  <stop offset="0%" stopColor="#294337" stopOpacity="0.28" />
                   <stop offset="100%" stopColor="#294337" stopOpacity="0" />
                 </linearGradient>
               </defs>
               {band ? <rect className="casa-day-band" x="0" y={band.y} width={tape.units} height={band.height} /> : null}
+              {hasClimate ? null : (
+                <line className="casa-day-rail" x1="0" y1={(TOP + BOTTOM) / 2} x2={tape.units} y2={(TOP + BOTTOM) / 2} />
+              )}
               {events.map((mark) => {
                 const point = toXy(mark.at, mark.humidity, day, tape.units);
                 return (
@@ -187,26 +200,32 @@ function DayPlot({
                     key={`stem-${mark.id}`}
                     className="casa-day-stem"
                     data-tone={mark.tone}
+                    data-kind={mark.alertType}
                     data-active={selected?.id === mark.id ? "true" : undefined}
                   >
-                    <line x1={point.x} y1={BOTTOM} x2={point.x} y2={point.y} />
+                    <line x1={point.x} y1={BOTTOM} x2={point.x} y2={Math.min(BOTTOM - 2, point.y + 14)} />
                   </g>
                 );
               })}
               {area ? <path className="casa-day-fill" d={area} fill={`url(#casa-day-fill-${gradientId})`} /> : null}
+              {line ? <path className="casa-day-line-back" d={line} /> : null}
               {line ? <path className="casa-day-line" d={line} /> : null}
-              {cursor ? <line className="casa-day-cursor" x1={cursor.x} y1={TOP - 8} x2={cursor.x} y2={BOTTOM} /> : null}
             </svg>
+            {empty ? <p className="casa-day-empty">{t("today.noClimate")}</p> : null}
             {events.map((mark) => {
               const point = toXy(mark.at, mark.humidity, day, tape.units);
               const active = selected?.id === mark.id;
+              const chip = active ? casaChartChipPlacement(mark.at, tape.start, tape.windowMs) : null;
               return (
                 <button
                   key={mark.id}
                   type="button"
                   className="casa-day-event"
                   data-tone={mark.tone}
+                  data-kind={mark.alertType}
                   data-active={active ? "true" : undefined}
+                  data-side={chip?.side}
+                  data-flush={chip?.flush ?? undefined}
                   style={dotStyle(point, tape.units)}
                   aria-pressed={active}
                   aria-label={`${formatClock(mark.at)} ${mark.label}, ${mark.detail}`}
@@ -215,7 +234,15 @@ function DayPlot({
                     event.stopPropagation();
                     onChoose(mark.id);
                   }}
-                />
+                >
+                  <span className="casa-day-event-face">{markGlyph(mark.alertType)}</span>
+                  {active && mark.alertType ? (
+                    <span className="casa-day-flag" data-tone={mark.tone}>
+                      <b>{formatClock(mark.at)}</b>
+                      <i>{casaAlertMarkLabel(locale, mark.alertType)}</i>
+                    </span>
+                  ) : null}
+                </button>
               );
             })}
             {now ? <i className="casa-day-now" style={dotStyle(now, tape.units)} /> : null}
@@ -488,6 +515,109 @@ function comfortBand(day: CasaDay, units: number) {
   const top = toXy(day.from, high, day, units).y;
   const bottom = toXy(day.from, low, day, units).y;
   return { y: top, height: Math.max(0, bottom - top) };
+}
+
+function expandPlotCoords(coords: { x: number; y: number }[], units: number) {
+  if (coords.length !== 1) return coords;
+  const point = coords[0];
+  const pad = Math.max(22, units * 0.04);
+  return [
+    { x: Math.max(0, point.x - pad), y: point.y },
+    point,
+    { x: Math.min(units, point.x + pad), y: point.y },
+  ];
+}
+
+function markGlyph(type: PulseAlertType | undefined) {
+  switch (type) {
+    case "WATER_LEAK":
+      return <IconDrop />;
+    case "HUMIDITY_HIGH":
+      return <IconHumidity />;
+    case "MOTION":
+      return <IconMotion />;
+    case "TEMP_HIGH":
+    case "TEMP_LOW":
+      return <IconTemp />;
+    case "BATTERY":
+      return <IconBattery />;
+    case "DOOR_OPEN":
+      return <IconDoor />;
+    case "OFFLINE":
+      return <IconOffline />;
+    default:
+      return <IconMark />;
+  }
+}
+
+function IconDrop() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5s6 6.2 6 10.2a6 6 0 1 1-12 0C6 10.7 12 4.5 12 4.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
+    </svg>
+  );
+}
+
+function IconHumidity() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3.8s6 6.4 6 10.4a6 6 0 1 1-12 0c0-4 6-10.4 6-10.4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
+      <path d="M9.2 15.1c.7 1.3 1.6 1.8 2.8 1.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+function IconMotion() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="7.1" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 19.6v-2.2c0-2.2 1.8-3.8 4-3.8s4 1.6 4 3.8v2.2" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
+    </svg>
+  );
+}
+
+function IconTemp() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M10 14.2V6.5a2 2 0 1 1 4 0v7.7a3.2 3.2 0 1 1-4 0Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
+      <path d="M12 16.2v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+function IconBattery() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5.5 8.5h11v7h-11v-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
+      <path d="M16.5 11h2v2h-2M8 12h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+function IconDoor() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 20.5V5.2A1.2 1.2 0 0 1 8.2 4h7.6A1.2 1.2 0 0 1 17 5.2V20.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
+      <path d="M14.6 12.2h.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+function IconOffline() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7.2 7.2 16.8 16.8M8.4 15.6a5.2 5.2 0 0 1 7.2 0M6 12a8.4 8.4 0 0 1 4.1-2.3M18 12a8.4 8.4 0 0 0-2.2-1.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
+      <path d="M12 18.4h.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+function IconMark() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
 }
 
 function formatClock(at: number) {

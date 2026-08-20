@@ -6,6 +6,12 @@ const LISBON = "Europe/Lisbon";
 
 export const CASA_CHART_WINDOW_MS = 4 * 3_600_000;
 
+export function casaChartChipPlacement(at: number, viewStart: number, windowMs: number) {
+  const t = (at - viewStart) / (windowMs || 1);
+  if (t >= 0.58) return { side: "left" as const, flush: t > 0.9 ? ("end" as const) : null };
+  return { side: "right" as const, flush: t < 0.1 ? ("start" as const) : null };
+}
+
 export type CasaDayPoint = {
   at: number;
   humidity: number;
