@@ -1083,14 +1083,16 @@ html:has(.laro-casa) body {
 
 @media (min-width: 640px) {
   .casa-stage { padding: 16px; align-items: center; justify-content: center; }
-  .casa-device { width: min(576px, 100%); height: min(1024px, calc(100dvh - 32px)); flex: none; border: 1px solid rgba(41,67,55,.09); border-radius: 34px; box-shadow: 0 35px 90px rgba(34,43,38,.17); }
-  .casa-shell { border-radius: 33px; }
+  .casa-device { width: min(576px, 100%); height: min(1024px, calc(100dvh - 32px)); flex: none; overflow: hidden; border: 1px solid rgba(41,67,55,.09); border-radius: 34px; box-shadow: 0 35px 90px rgba(34,43,38,.17); }
+  .casa-shell,
+  .casa-gate { border-radius: 33px; }
 }
 
 @media (display-mode: standalone) {
   .casa-stage { padding: 0; }
   .casa-device { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
-  .casa-shell { border-radius: 0; }
+  .casa-shell,
+  .casa-gate { border-radius: 0; }
 }
 
 @keyframes casa-wave {
@@ -1395,12 +1397,12 @@ html:has(.laro-casa) body {
   margin-top: auto;
   padding: 24px 20px 22px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 16px;
+  border: 1px solid rgba(41, 67, 55, 0.085);
+  border-radius: 30px;
   background: var(--gate-card);
   box-shadow:
-    0 22px 48px rgba(43, 52, 46, 0.1),
-    0 2px 8px rgba(43, 52, 46, 0.04);
+    0 22px 50px rgba(43, 52, 46, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 .casa-gate-card form { min-width: 0; }
 .casa-gate-field {
@@ -1410,8 +1412,8 @@ html:has(.laro-casa) body {
   min-width: 0;
   height: 56px;
   padding: 0 16px;
-  border: 1px solid rgba(41, 67, 55, 0.16);
-  border-radius: 8px;
+  border: 1px solid rgba(41, 67, 55, 0.12);
+  border-radius: 18px;
   background: #fffefa;
   color: var(--gate-ink);
 }
@@ -1476,8 +1478,8 @@ html:has(.laro-casa) body {
   place-items: center;
   aspect-ratio: 1;
   min-height: 46px;
-  border: 1.5px solid rgba(41, 67, 55, 0.14);
-  border-radius: 8px;
+  border: 1.5px solid rgba(41, 67, 55, 0.12);
+  border-radius: 16px;
   background: var(--gate-field);
   color: var(--gate-ink);
   font-size: 20px;
@@ -1532,7 +1534,7 @@ html:has(.laro-casa) body {
   height: 56px;
   margin-top: 16px;
   padding: 0 48px 0 22px;
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--gate-btn);
   color: #fffefa;
   box-shadow: 0 10px 22px rgba(35, 57, 43, 0.18);
