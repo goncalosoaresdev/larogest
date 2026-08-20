@@ -1,18 +1,21 @@
 import { jsonError, jsonOk, limited } from "@/lib/api";
+import { requireCasaApiSite } from "@/lib/casa";
 import { loadCasaHistoryPage } from "@/lib/casa-history";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ token: string }> },
+  { params }: { params: Promise<{ siteId: string }> },
 ) {
   const blocked = limited(request, "casa-history", 60);
   if (blocked) return blocked;
   try {
-    const { token } = await params;
+    const { siteId } = await params;
+    const access = await requireCasaApiSite(siteId);
+    if (access.error) return access.error;
     const url = new URL(request.url);
     const at = url.searchParams.get("at");
     const id = url.searchParams.get("id");
-    const page = await loadCasaHistoryPage(token, {
+    const page = await loadCasaHistoryPage(access.site.id, {
       deviceId: url.searchParams.get("deviceId"),
       cursor: at && id ? { recordedAt: at, id } : null,
     });

@@ -7,7 +7,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  let data = { title: "Laro Pulse", body: "Há um aviso na casa.", url: "/" };
+  let data = { title: "Laro Pulse", body: "Há um aviso na casa.", url: "/casa" };
   try {
     data = { ...data, ...event.data.json() };
   } catch {
@@ -25,7 +25,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/";
+  const url = event.notification.data?.url || "/casa";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       const open = clients.find((client) => client.url.includes(url) && "focus" in client);

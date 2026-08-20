@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ token: string }> },
-) {
-  const { token } = await params;
-  const start = `/casa/${token}`;
+export async function GET() {
   return NextResponse.json(
     {
       name: "Laro Pulse",
       short_name: "Pulse",
       description: "Estado da casa, em tempo real, com a Laro.",
-      start_url: start,
-      scope: start,
+      start_url: "/casa",
+      scope: "/casa",
       display: "standalone",
       background_color: "#f7f4ed",
       theme_color: "#f7f4ed",

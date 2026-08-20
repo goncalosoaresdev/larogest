@@ -1,28 +1,31 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useRouter } from "next/navigation";
 import { getCasaPushStatus, subscribeCasaPush, type CasaPushStatus } from "@/lib/casa-push-client";
 import { DEFAULT_CASA_NOTIFY, parseClockMinutes, type CasaNotifyPrefs } from "@/lib/casa-notify-types";
 import { casaText, isPushErrorKey, type CasaLocale } from "@/lib/casa-locale";
 import { useCasaLocale } from "@/components/use-casa-locale";
+import { authClient } from "@/lib/auth-client";
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`);
 const WHEEL_ITEM = 28;
 const WHEEL_PAD = 21;
 const WHEEL_H = WHEEL_ITEM + WHEEL_PAD * 2;
 
-export function CasaSettings({ token }: { token: string }) {
+export function CasaSettings({ siteId, canSignOut = true }: { siteId: string; canSignOut?: boolean }) {
   const [prefs, setPrefs] = useState<CasaNotifyPrefs>(DEFAULT_CASA_NOTIFY);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [pushState, setPushState] = useState<CasaPushStatus>("hidden");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const { locale, t, setLocale } = useCasaLocale();
+  const router = useRouter();
 
   useEffect(() => {
     setPushState(getCasaPushStatus());
     let cancelled = false;
-    void fetch(`/api/casa/${token}/notify`)
+    void fetch(`/api/casa/${siteId}/notify`)
       .then((response) => {
         if (!response.ok) throw new Error("notify");
         return response.json() as Promise<CasaNotifyPrefs>;
@@ -39,7 +42,7 @@ export function CasaSettings({ token }: { token: string }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [siteId]);
 
   async function save(on: boolean) {
     const previous = prefs;
@@ -48,11 +51,11 @@ export function CasaSettings({ token }: { token: string }) {
     setNote(null);
     try {
       if (on) {
-        const result = await subscribeCasaPush(token);
+        const result = await subscribeCasaPush(siteId);
         setPushState(getCasaPushStatus());
         if (!result.ok) setNote(translatePushError(locale, result.error, result.host));
       }
-      const response = await fetch(`/api/casa/${token}/notify`, {
+      const response = await fetch(`/api/casa/${siteId}/notify`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ push: on }),
@@ -71,7 +74,7 @@ export function CasaSettings({ token }: { token: string }) {
     setPrefs({ ...prefs, ...next });
     setBusy(true);
     try {
-      const response = await fetch(`/api/casa/${token}/notify`, {
+      const response = await fetch(`/api/casa/${siteId}/notify`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next),
@@ -138,6 +141,28 @@ export function CasaSettings({ token }: { token: string }) {
           />
         ) : null}
       </section>
+
+      {canSignOut ? (
+        <section className="casa-settings">
+          <h3>{t("settings.account")}</h3>
+          <button
+            type="button"
+            className="casa-setting"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void authClient.signOut().then(() => {
+                router.replace("/casa/entrar");
+                router.refresh();
+              });
+            }}
+          >
+            <span>
+              <strong>{busy ? t("settings.signingOut") : t("settings.signOut")}</strong>
+            </span>
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }

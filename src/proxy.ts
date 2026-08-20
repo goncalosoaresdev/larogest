@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-const publicPrefixes = ["/login", "/p/", "/c/", "/casa/", "/api/casa/", "/api/auth"];
+function isPublicPath(pathname: string) {
+  if (pathname === "/") return true;
+  if (pathname === "/login" || pathname.startsWith("/login/")) return true;
+  if (pathname.startsWith("/p/")) return true;
+  if (pathname.startsWith("/c/")) return true;
+  if (pathname === "/casa/entrar" || pathname.startsWith("/casa/entrar/")) return true;
+  if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) return true;
+  return false;
+}
+
+function isCasaPath(pathname: string) {
+  return pathname === "/casa" || pathname.startsWith("/casa/");
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPublic =
-    pathname === "/" ||
-    publicPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
 
-  if (isPublic) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
@@ -17,6 +26,13 @@ export function proxy(request: NextRequest) {
   if (!sessionCookie) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    if (isCasaPath(pathname)) {
+      const login = new URL("/casa/entrar", request.url);
+      if (pathname !== "/casa/entrar" && !pathname.startsWith("/casa/entrar/")) {
+        login.searchParams.set("next", pathname);
+      }
+      return NextResponse.redirect(login);
     }
     const login = new URL("/login", request.url);
     login.searchParams.set("next", pathname);

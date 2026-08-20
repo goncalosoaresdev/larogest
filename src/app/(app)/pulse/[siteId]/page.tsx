@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { expectedLocationNames, getIoTAdapter, listIoTAdapters, matchProviderLocation } from "@/lib/iot";
-import { ensurePulsePublicToken, sortPulseDevices } from "@/lib/pulse";
+import { sortPulseDevices } from "@/lib/pulse";
 import { PulseDashboard } from "@/components/pulse-dashboard";
 
 export default async function PulseSitePage({
@@ -21,7 +21,6 @@ export default async function PulseSitePage({
   if (!site) notFound();
 
   const lead = site.property.leads[0];
-  const token = site.publicToken ?? (await ensurePulsePublicToken(site.id));
   const adapter = getIoTAdapter(site.provider);
   const locations =
     !site.locationId && adapter.listLocations ? await adapter.listLocations().catch(() => []) : [];
@@ -52,7 +51,7 @@ export default async function PulseSitePage({
       suggestedLocation={suggested}
       locationHints={expectedLocationNames(matchHints)}
       leadHref={lead ? `/leads/${lead.id}` : null}
-      ownerHref={`/casa/${token}`}
+      ownerHref={`/casa/${site.id}`}
       devices={sortPulseDevices(site.devices)}
       alerts={site.alerts}
       siteStatus={site.status}

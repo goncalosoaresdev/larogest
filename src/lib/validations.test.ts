@@ -136,6 +136,29 @@ describe("companySchema and pulse schemas", () => {
       false,
     );
     assert.equal(
+      pulseSiteSchema.safeParse({
+        ownerName: "Maria Silva",
+        email: "maria@laro.pt",
+        address: "Rua longa 10",
+      }).success,
+      true,
+    );
+    assert.equal(
+      pulseSiteSchema.safeParse({
+        ownerName: "Maria Silva",
+        address: "Rua longa 10",
+      }).success,
+      false,
+    );
+    assert.equal(
+      pulseSiteSchema.safeParse({
+        ownerName: "Maria Silva",
+        email: "not-an-email",
+        address: "Rua longa 10",
+      }).success,
+      false,
+    );
+    assert.equal(
       pulseReadingSchema.safeParse({ deviceId: "dev-1", leak: "true" }).success,
       true,
     );

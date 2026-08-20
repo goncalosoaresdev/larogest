@@ -22,6 +22,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Laro Pulse",
   description: "Estado da casa, em tempo real, com a Laro.",
+  manifest: "/casa/manifest.webmanifest",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
   icons: {

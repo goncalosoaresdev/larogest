@@ -1,4 +1,3 @@
-import { isCasaToken } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isPulseSiteActive } from "@/lib/pulse";
 
@@ -29,17 +28,15 @@ export type CasaHistoryPage = {
 };
 
 export async function loadCasaHistoryPage(
-  token: string,
+  siteId: string,
   input: {
     cursor?: CasaHistoryCursor | null;
     deviceId?: string | null;
     limit?: number;
   } = {},
 ): Promise<CasaHistoryPage | null> {
-  if (!isCasaToken(token)) return null;
-
   const site = await prisma.pulseSite.findUnique({
-    where: { publicToken: token },
+    where: { id: siteId },
     select: { status: true, devices: { select: { id: true } } },
   });
   if (!site || !isPulseSiteActive(site.status)) return null;

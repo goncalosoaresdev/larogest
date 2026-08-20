@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { getCasaPushStatus, subscribeCasaPush, type CasaPushStatus } from "@/lib/casa-push-client";
 import { useCasaLocale } from "@/components/use-casa-locale";
 
-export function CasaPushEnable({ token }: { token: string }) {
+export function CasaPushEnable({ siteId }: { siteId: string }) {
   const { t } = useCasaLocale();
   const detected = useSyncExternalStore(subscribe, getCasaPushStatus, () => "hidden" as CasaPushStatus);
   const [subscribed, setSubscribed] = useState(false);
@@ -12,13 +12,13 @@ export function CasaPushEnable({ token }: { token: string }) {
   useEffect(() => {
     if (detected !== "granted") return;
     let cancelled = false;
-    void subscribeCasaPush(token).then((result) => {
+    void subscribeCasaPush(siteId).then((result) => {
       if (!cancelled && result.ok) setSubscribed(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [detected, token]);
+  }, [detected, siteId]);
 
   if (detected === "hidden" || subscribed) return null;
 
@@ -37,7 +37,7 @@ export function CasaPushEnable({ token }: { token: string }) {
       type="button"
       className="casa-push is-action"
       onClick={() =>
-        void subscribeCasaPush(token).then((result) => {
+        void subscribeCasaPush(siteId).then((result) => {
           if (result.ok) setSubscribed(true);
         })
       }
