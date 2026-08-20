@@ -8,6 +8,7 @@ import type { CasaHouseOption, CasaLive, CasaOwnerAlert, CasaOwnerDevice } from 
 import { format, startOfDay } from "date-fns";
 import { CasaTodayChart } from "@/components/casa-today-chart";
 import { pulseDeviceSeverity } from "@/lib/pulse";
+import { CasaPulseMark } from "@/components/casa-pulse-mark";
 import { CasaPushEnable } from "@/components/casa-push-enable";
 import { CasaSettings } from "@/components/casa-settings";
 import { useCasaLocale } from "@/components/use-casa-locale";
@@ -28,10 +29,10 @@ import {
 
 const WHATSAPP = "https://wa.me/351931063911";
 
-type Tab = "casa" | "historico" | "alertas" | "laro" | "definicoes";
+type Tab = "casa" | "historico" | "alertas" | "definicoes";
 type Tone = "ok" | "warn" | "alert" | "offline" | "idle";
 
-const TABS: Tab[] = ["casa", "historico", "alertas", "laro"];
+const TABS: Tab[] = ["casa", "historico", "alertas"];
 const LIVE_MS = 60_000;
 
 export function CasaPulseView({
@@ -136,7 +137,10 @@ export function CasaPulseView({
           <header className={`casa-appbar${scrolled ? " is-scrolled" : ""}`}>
             <strong className="casa-brand" aria-label="Laro Pulse">
               <span className="casa-brand-mark" aria-hidden="true" />
-              <span className="casa-brand-badge">Pulse</span>
+              <span className="casa-brand-badge">
+                <CasaPulseMark />
+                Pulse
+              </span>
             </strong>
             <CasaPlaceSwitch currentSiteId={siteId} propertyName={propertyName} houses={houses} />
             <div className="casa-account">
@@ -185,7 +189,6 @@ export function CasaPulseView({
               ) : null}
               {tab === "historico" ? <HistoryPane siteId={siteId} devices={sensors} now={clock} /> : null}
               {tab === "alertas" ? <AlertsPane alerts={live.alerts} siteId={siteId} /> : null}
-              {tab === "laro" ? <LaroPane tone={tone} siteId={siteId} /> : null}
               {tab === "definicoes" ? <CasaSettings siteId={siteId} canSignOut={canSignOut} /> : null}
             </div>
           </main>
@@ -209,9 +212,6 @@ export function CasaPulseView({
               onSelect={() => setTab("alertas")}
             >
               <IconBell />
-            </TabButton>
-            <TabButton active={tab === "laro"} label={t("tab.laro")} onSelect={() => setTab("laro")}>
-              <IconMark />
             </TabButton>
           </nav>
         </div>
@@ -841,27 +841,6 @@ function AlertsPane({ alerts, siteId }: { alerts: CasaOwnerAlert[]; siteId: stri
   );
 }
 
-function LaroPane({ tone, siteId }: { tone: Tone; siteId: string }) {
-  const { t } = useCasaLocale();
-  return (
-    <div className="casa-contact">
-      <span className="casa-logo" aria-hidden="true" />
-      <h2>{tone === "alert" || tone === "warn" ? t("laro.alerted") : t("laro.near")}</h2>
-      <p className="casa-place-line">Penela · Centro de Portugal</p>
-      <p>
-        {tone === "alert" || tone === "warn" ? t("laro.alertBody") : t("laro.okBody")}
-      </p>
-      <a className="casa-action" href={WHATSAPP} rel="noopener noreferrer" target="_blank">
-        {t("laro.whatsapp")}
-      </a>
-      <a className="casa-tel" href="tel:+351931063911">
-        +351 931 063 911
-      </a>
-      <CasaPushEnable siteId={siteId} />
-    </div>
-  );
-}
-
 function sensorDisplayValue(sensor: OwnerTile, locale: CasaLocale) {
   if (sensor.valueKey) return casaText(locale, sensor.valueKey);
   return sensor.value;
@@ -1017,14 +996,6 @@ function IconHistory() {
   );
 }
 
-function IconMark() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <ellipse cx="12" cy="12" rx="7.2" ry="6.2" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  );
-}
-
 function IconDrop() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1066,6 +1037,14 @@ function IconMotion() {
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
       <path d="M12 4.5v2.2M12 17.3v2.2M4.5 12h2.2M17.3 12h2.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square" />
       <path d="m6.6 6.6 1.6 1.6M15.8 15.8l1.6 1.6M17.4 6.6l-1.6 1.6M8.2 15.8l-1.6 1.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+function IconMark() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <ellipse cx="12" cy="12" rx="7.2" ry="6.2" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   );
 }

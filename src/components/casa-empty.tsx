@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CasaPulseMark } from "@/components/casa-pulse-mark";
 import { useCasaLocale } from "@/components/use-casa-locale";
 import { authClient } from "@/lib/auth-client";
 
@@ -15,7 +16,10 @@ export function CasaEmpty() {
       <header className="casa-login-top">
         <strong className="casa-brand" aria-label="Laro Pulse">
           <span className="casa-brand-mark" aria-hidden="true" />
-          <span className="casa-brand-badge">Pulse</span>
+          <span className="casa-brand-badge">
+            <CasaPulseMark />
+            Pulse
+          </span>
         </strong>
         <div className="casa-login-langs" role="group" aria-label={t("settings.language")}>
           <button

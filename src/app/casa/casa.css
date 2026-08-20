@@ -125,16 +125,23 @@ html:has(.laro-casa) body {
 .casa-brand-badge {
   display: inline-flex;
   align-items: center;
-  height: 16px;
-  padding: 0 6px 0 7px;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px 0 7px;
   border-radius: 999px;
   background: linear-gradient(135deg, #314d40 0%, #203b30 58%, #183228 100%);
+  box-shadow: 0 6px 12px rgba(29, 49, 38, 0.18);
   color: #fffefa;
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 720;
   letter-spacing: 0.16em;
   line-height: 1;
   text-transform: uppercase;
+}
+.casa-brand-badge svg {
+  width: 14px;
+  height: 7px;
+  color: #fffefa;
 }
 
 .casa-place-wrap { position: relative; justify-self: center; }
@@ -822,8 +829,17 @@ html:has(.laro-casa) body {
   .casa-ask.is-open { animation: casa-detail-in 0.2s ease-out; }
 }
 
+
+.casa-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .casa-pane { min-height: 100%; padding: 8px 2px 22px; }
-.casa-contact { min-height: 100%; padding: 22px 4px; }
 .casa-pane h2 {
   margin: 4px 2px 14px;
   color: var(--ink);
@@ -832,8 +848,7 @@ html:has(.laro-casa) body {
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
-.casa-contact h2 { margin: 8px 0 12px; font-family: var(--font-display); font-size: clamp(30px, 7vw, 42px); font-weight: 500; letter-spacing: -.055em; line-height: 1.02; }
-.casa-pane-lead, .casa-contact p { margin: 0 0 12px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+.casa-pane-lead { margin: 0 0 12px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
 
 .casa-history-filters {
   display: flex;
@@ -967,12 +982,6 @@ html:has(.laro-casa) body {
 .casa-timeline span { color: #838980; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .casa-timeline strong { display: block; margin: 3px 0 2px; font-size: 16px; font-weight: 600; }
 .casa-timeline small { color: var(--ink-soft); font-size: 13px; }
-.casa-contact { display: flex; flex-direction: column; }
-.casa-contact .casa-logo { display: block; width: 108px; aspect-ratio: 328/80; margin-bottom: 30px; background: var(--ink); -webkit-mask: url("/laro-logo.svg") center/contain no-repeat; mask: url("/laro-logo.svg") center/contain no-repeat; }
-.casa-place-line { color: var(--olive) !important; font-size: 11px !important; font-weight: 650; letter-spacing: .14em; text-transform: uppercase; }
-.casa-action { display: grid; place-items: center; min-height: 54px; margin-top: auto; border-radius: 17px; background: var(--olive-dark); color: var(--white); font-weight: 560; }
-.casa-tel { display: block; margin-top: 14px; color: var(--olive-dark); font-size: 14px; font-weight: 600; text-align: center; }
-
 .casa-tabbar {
   position: absolute;
   bottom: max(12px, env(safe-area-inset-bottom, 12px));
@@ -1049,7 +1058,8 @@ html:has(.laro-casa) body {
   .casa-appbar { padding-right: 14px; padding-left: 18px; }
   .casa-brand { gap: 6px; }
   .casa-brand-mark { width: 50px; height: 13px; }
-  .casa-brand-badge { height: 15px; padding: 0 5px 0 6px; font-size: 7.5px; letter-spacing: 0.14em; }
+  .casa-brand-badge { gap: 4px; height: 18px; padding: 0 7px 0 6px; font-size: 7.5px; letter-spacing: 0.14em; }
+  .casa-brand-badge svg { width: 12px; height: 6px; }
   .casa-place { font-size: 13px; }
 
   .casa-screen { padding-right: 14px; padding-left: 14px; }
