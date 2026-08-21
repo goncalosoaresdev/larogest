@@ -30,10 +30,11 @@ describe("casa locale lookup", () => {
     assert.equal(casaText("en", "history.empty"), "No readings in this house yet.");
     assert.equal(casaAlertTypeLabel("pt", "WATER_LEAK"), "Fuga de água");
     assert.equal(casaAlertTypeLabel("en", "WATER_LEAK"), "Water leak");
-    assert.equal(casaText("pt", "today.temperature"), "temperatura");
-    assert.equal(casaText("en", "today.battery"), "battery");
-    assert.equal(casaText("pt", "today.none"), "Sem alertas hoje");
-    assert.equal(casaText("en", "today.none"), "No alerts today");
+    assert.equal(casaText("pt", "today.quiet"), "Dia calmo até agora.");
+    assert.equal(casaText("en", "today.quiet"), "A quiet day so far.");
+    assert.equal(casaText("pt", "today.many", { n: 3 }), "3 ocorrências hoje");
+    assert.equal(casaText("en", "today.one"), "1 event today");
+    assert.equal(casaText("pt", "chart.open"), "Em aberto");
     assert.equal(casaText("pt", "alerts.open"), "Em aberto");
     assert.equal(casaText("pt", "alerts.emptyLead"), "Se algo mudar na casa, aparece aqui. A Laro recebe o mesmo aviso.");
     assert.equal(casaText("en", "alerts.calmNote"), "Nothing open. If something changes, the alert lands here and on your phone.");

@@ -1,16 +1,9 @@
 import type { PulseAlert, PulseAlertType, PulseSample } from "@prisma/client";
 import type { CasaOwnerAlert, CasaOwnerDevice } from "@/lib/casa";
+import { casaAlertTone } from "@/lib/casa-alert-view";
 import { casaAlertTypeLabel, casaText, type CasaLocale } from "@/lib/casa-locale";
 
 const LISBON = "Europe/Lisbon";
-
-export const CASA_CHART_WINDOW_MS = 4 * 3_600_000;
-
-export function casaChartChipPlacement(at: number, viewStart: number, windowMs: number) {
-  const t = (at - viewStart) / (windowMs || 1);
-  if (t >= 0.58) return { side: "left" as const, flush: t > 0.9 ? ("end" as const) : null };
-  return { side: "right" as const, flush: t < 0.1 ? ("start" as const) : null };
-}
 
 export type CasaDayPoint = {
   at: number;
@@ -24,15 +17,18 @@ export type CasaDayReadout = {
   value: number;
 };
 
+/**
+ * One thing that happened today. There is deliberately no vertical value here: the day
+ * is read along time only, and severity comes from the alert type, not from a reading.
+ */
 export type CasaDayMark = {
   id: string;
   at: number;
-  humidity: number;
-  kind: "now" | "event";
   label: string;
   detail: string;
-  tone: "ok" | "warn" | "alert";
-  alertType?: PulseAlertType;
+  tone: "warn" | "alert";
+  open: boolean;
+  alertType: PulseAlertType;
   readout?: CasaDayReadout;
 };
 
@@ -47,14 +43,11 @@ export type CasaDayTick = {
 };
 
 export type CasaDay = {
-  points: CasaDayPoint[];
   marks: CasaDayMark[];
   ticks: CasaDayTick[];
+  /** Lisbon midnight. The ribbon scale runs a fixed 24 hours from here. */
   from: number;
   to: number;
-  nowAt: number;
-  humidity: number | null;
-  domain: { min: number; max: number };
 };
 
 export function startOfLisbonDay(now = new Date()) {
@@ -74,34 +67,25 @@ export function buildCasaDay(input: {
   const to = now.getTime();
   const climate = input.devices.find((device) => device.kind === "TEMP_HUMIDITY");
   const humidity = humidityFromDevice(climate);
-  const lastSeen = climate?.lastSeenAt ? new Date(climate.lastSeenAt).getTime() : to;
-  const nowAt = climate && !climate.online && climate.lastSeenAt ? Math.min(to, Math.max(from, lastSeen)) : to;
   const samples = input.samples ?? [];
 
-  const points = sampleHumiditySeries(samples, climate?.id, from, nowAt, humidity);
-  const domain = humidityDomain(points, humidity);
   const marks = dayMarks({
     alerts: input.alerts,
     devices: input.devices,
     climate,
     samples,
     from,
-    to: nowAt,
+    to,
     humidity,
-    points,
-    offline: Boolean(climate && !climate.online && climate.lastSeenAt),
+    points: sampleHumiditySeries(samples, climate?.id, from, to, humidity),
     locale: input.locale ?? "pt",
   });
 
   return {
-    points,
     marks,
-    ticks: dayTicks(from, nowAt),
+    ticks: dayTicks(marks, to),
     from,
-    to: nowAt,
-    nowAt,
-    humidity,
-    domain,
+    to,
   };
 }
 
@@ -143,30 +127,6 @@ export function casaAlertReadout(
     case "OFFLINE":
       return undefined;
   }
-}
-
-export function smoothPath(points: { x: number; y: number }[]) {
-  if (points.length === 0) return "";
-  if (points.length === 1) return `M${fmt(points[0].x)} ${fmt(points[0].y)}`;
-  if (points.length === 2) {
-    return `M${fmt(points[0].x)} ${fmt(points[0].y)} L${fmt(points[1].x)} ${fmt(points[1].y)}`;
-  }
-
-  const parts = [`M${fmt(points[0].x)} ${fmt(points[0].y)}`];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const p0 = points[index - 1] ?? points[index];
-    const p1 = points[index];
-    const p2 = points[index + 1];
-    const p3 = points[index + 2] ?? p2;
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
-    parts.push(
-      `C${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(p2.x)} ${fmt(p2.y)}`,
-    );
-  }
-  return parts.join(" ");
 }
 
 function sampleHumiditySeries(
@@ -222,7 +182,6 @@ function dayMarks(input: {
   to: number;
   humidity: number | null;
   points: CasaDayPoint[];
-  offline: boolean;
   locale: CasaLocale;
 }): CasaDayMark[] {
   const marks: CasaDayMark[] = [];
@@ -263,65 +222,40 @@ function dayMarks(input: {
     marks.push({
       id: alert.id,
       at,
-      humidity: humidity ?? 54,
-      kind: "event",
       label: casaAlertTypeLabel(input.locale, alert.type),
       detail: resolved ? casaText(input.locale, "chart.resolved") : casaText(input.locale, "chart.open"),
-      tone: !resolved || alert.type === "WATER_LEAK" ? "alert" : "warn",
+      tone: casaAlertTone(alert.type),
+      open: !resolved,
       alertType: alert.type,
       readout: casaAlertReadout(alert.type, { humidity, temperature, batteryPct }),
     });
   }
 
-  if (input.humidity != null) {
-    marks.push({
-      id: "now",
-      at: input.to,
-      humidity: input.humidity,
-      kind: "now",
-      label: input.offline ? casaText(input.locale, "chart.lastReading") : casaText(input.locale, "chart.now"),
-      detail: input.offline ? casaText(input.locale, "chart.offline") : casaText(input.locale, "today.humidity"),
-      tone: input.offline ? "warn" : "ok",
-    });
-  }
-
-  return marks;
+  return marks.sort((left, right) => left.at - right.at);
 }
 
-function dayTicks(from: number, to: number): CasaDayTick[] {
-  const gap = 25 * 60_000;
-  const ticks: CasaDayTick[] = [{ at: from, label: formatLisbonClock(from) }];
-  let cursor = startOfLisbonHour(new Date(from)).getTime();
-  if (cursor < from + gap) cursor += 3_600_000;
-  while (cursor <= to - gap) {
-    ticks.push({ at: cursor, label: formatLisbonClock(cursor) });
-    cursor += 3_600_000;
+/**
+ * Axis labels are the events themselves, plus now. A clock time that would sit
+ * on top of another — two alerts a few minutes apart, or an alert next to the
+ * playhead — is dropped so the line stays readable.
+ */
+export function dayTicks(marks: Pick<CasaDayMark, "at">[], to: number): CasaDayTick[] {
+  const near = 150 * 60_000;
+  const ticks: CasaDayTick[] = [];
+  const ordered = [...marks].sort((left, right) => left.at - right.at);
+  for (const mark of ordered) {
+    const last = ticks[ticks.length - 1];
+    if (last && mark.at - last.at < near) continue;
+    if (to - mark.at < near) continue;
+    ticks.push({ at: mark.at, label: formatLisbonClock(mark.at) });
   }
   ticks.push({ at: to, label: formatLisbonClock(to), now: true });
   return ticks;
 }
 
-function startOfLisbonHour(value: Date) {
-  const parts = lisbonParts(value);
-  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, 0, 0) - lisbonOffsetMs(value));
-}
-
 function formatLisbonClock(at: number) {
   const parts = lisbonParts(new Date(at));
   return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
-}
-
-function humidityDomain(points: CasaDayPoint[], humidity: number | null) {
-  const values = points.map((point) => point.humidity);
-  if (humidity != null) values.push(humidity);
-  if (values.length === 0) return { min: 40, max: 70 };
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const pad = Math.max(6, (max - min) * 0.28);
-  return {
-    min: Math.max(20, Math.floor((min - pad) / 5) * 5),
-    max: Math.min(100, Math.ceil((max + pad) / 5) * 5),
-  };
 }
 
 function humidityFromDevice(device?: CasaOwnerDevice) {
@@ -357,6 +291,3 @@ function lisbonOffsetMs(value: Date) {
   return asUtc - value.getTime();
 }
 
-function fmt(value: number) {
-  return value.toFixed(2);
-}

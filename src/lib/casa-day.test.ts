@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PulseAlertType, PulseSample } from "@prisma/client";
-import {
-  buildCasaDay,
-  casaAlertReadout,
-  casaChartChipPlacement,
-  humidityAt,
-  smoothPath,
-  startOfLisbonDay,
-} from "./casa-day";
+import { buildCasaDay, casaAlertReadout, dayTicks, humidityAt, startOfLisbonDay } from "./casa-day";
 import type { CasaOwnerDevice } from "./casa";
 
 describe("humidityAt", () => {
@@ -24,18 +17,45 @@ describe("humidityAt", () => {
   });
 });
 
-describe("smoothPath", () => {
-  it("builds SVG path commands for 0, 1, 2, and many points", () => {
-    assert.equal(smoothPath([]), "");
-    assert.equal(smoothPath([{ x: 1, y: 2 }]), "M1.00 2.00");
-    assert.equal(smoothPath([{ x: 0, y: 0 }, { x: 4, y: 4 }]), "M0.00 0.00 L4.00 4.00");
-    const curve = smoothPath([
-      { x: 0, y: 0 },
-      { x: 10, y: 10 },
-      { x: 20, y: 0 },
-    ]);
-    assert.match(curve, /^M0\.00 0\.00/);
-    assert.match(curve, /C/);
+describe("dayTicks", () => {
+  const midnight = startOfLisbonDay(new Date("2026-08-21T10:00:00Z")).getTime();
+  const hour = 3_600_000;
+  const at = (hours: number) => ({ at: midnight + hours * hour });
+
+  it("labels each alert and ends on now", () => {
+    const ticks = dayTicks([at(8), at(11)], midnight + 13 * hour + 52 * 60_000);
+    assert.deepEqual(
+      ticks.map((tick) => tick.label),
+      ["08:00", "11:00", "13:52"],
+    );
+    assert.equal(ticks[ticks.length - 1].now, true);
+  });
+
+  it("is only now when nothing has happened yet", () => {
+    const ticks = dayTicks([], midnight + 13 * hour + 52 * 60_000);
+    assert.deepEqual(
+      ticks.map((tick) => tick.label),
+      ["13:52"],
+    );
+    assert.equal(ticks[0].now, true);
+  });
+
+  it("keeps one label when two alerts would sit on top of each other", () => {
+    const labels = dayTicks([at(8), at(8.5)], midnight + 13 * hour).map((tick) => tick.label);
+    assert.deepEqual(labels, ["08:00", "13:00"]);
+  });
+
+  it("drops an alert that would sit on now", () => {
+    const labels = dayTicks([at(13)], midnight + 13 * hour + 20 * 60_000).map((tick) => tick.label);
+    assert.deepEqual(labels, ["13:20"]);
+  });
+
+  it("never invents a clock time that is not an alert or now", () => {
+    const labels = dayTicks([at(9)], midnight + 13 * hour + 52 * 60_000).map((tick) => tick.label);
+    assert.equal(labels.includes("00:00"), false);
+    assert.equal(labels.includes("06:00"), false);
+    assert.equal(labels.includes("18:00"), false);
+    assert.deepEqual(labels, ["09:00", "13:52"]);
   });
 });
 
@@ -84,12 +104,49 @@ describe("buildCasaDay", () => {
       now,
       locale: "pt",
     });
-    assert.equal(day.humidity, 55);
-    assert.ok(day.points.length >= 1);
-    assert.ok(day.marks.some((mark) => mark.id === "now" && mark.kind === "now"));
-    assert.ok(day.marks.some((mark) => mark.id === "leak" && mark.tone === "alert" && mark.alertType === "WATER_LEAK"));
+    const leak = day.marks.find((mark) => mark.id === "leak");
+    assert.equal(leak?.tone, "alert");
+    assert.equal(leak?.open, true);
+    assert.equal(leak?.alertType, "WATER_LEAK");
     assert.equal(day.marks.some((mark) => mark.id === "old"), false);
     assert.ok(day.ticks.some((tick) => tick.now));
+    assert.equal(day.to, now.getTime());
+  });
+
+  it("reads severity from the alert type and keeps open separate from resolved", () => {
+    const now = new Date("2026-01-15T15:00:00Z");
+    const day = buildCasaDay({
+      devices: [],
+      alerts: [
+        { id: "old-leak", type: "WATER_LEAK", status: "RESOLVED", triggeredAt: new Date("2026-01-15T09:00:00Z") },
+        { id: "motion", type: "MOTION", status: "OPEN", triggeredAt: new Date("2026-01-15T14:00:00Z") },
+      ],
+      now,
+      locale: "pt",
+    });
+    const mark = (id: string) => day.marks.find((item) => item.id === id);
+    // A resolved leak is still the serious kind of event; an open motion alert is not.
+    assert.equal(mark("old-leak")?.tone, "alert");
+    assert.equal(mark("old-leak")?.open, false);
+    assert.equal(mark("motion")?.tone, "warn");
+    assert.equal(mark("motion")?.open, true);
+  });
+
+  it("returns marks in the order they happened", () => {
+    const now = new Date("2026-01-15T15:00:00Z");
+    const day = buildCasaDay({
+      devices: [],
+      alerts: [
+        { id: "late", type: "MOTION", status: "RESOLVED", triggeredAt: new Date("2026-01-15T14:00:00Z") },
+        { id: "early", type: "MOTION", status: "RESOLVED", triggeredAt: new Date("2026-01-15T08:00:00Z") },
+      ],
+      now,
+      locale: "pt",
+    });
+    assert.deepEqual(
+      day.marks.map((mark) => mark.id),
+      ["early", "late"],
+    );
   });
 
   it("attaches the matching reading for every alert type", () => {
@@ -143,17 +200,6 @@ describe("buildCasaDay", () => {
     assert.equal(mark("motion")?.readout, undefined);
     assert.equal(mark("door")?.readout, undefined);
     assert.equal(mark("off")?.readout, undefined);
-  });
-});
-
-describe("casaChartChipPlacement", () => {
-  it("opens the chip away from the nearer edge of the visible window", () => {
-    const start = Date.parse("2026-01-15T18:00:00Z");
-    const windowMs = 4 * 3_600_000;
-    assert.deepEqual(casaChartChipPlacement(start + 60 * 60_000, start, windowMs), { side: "right", flush: null });
-    assert.deepEqual(casaChartChipPlacement(start + 3 * 3_600_000, start, windowMs), { side: "left", flush: null });
-    assert.equal(casaChartChipPlacement(start + 5 * 60_000, start, windowMs).flush, "start");
-    assert.equal(casaChartChipPlacement(start + windowMs - 5 * 60_000, start, windowMs).flush, "end");
   });
 });
 

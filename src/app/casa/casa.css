@@ -540,12 +540,27 @@ html:has(.laro-casa) body {
   text-overflow: ellipsis;
 }
 .casa-today-read {
-  display: grid;
+  display: flex;
   flex: 0 0 auto;
-  justify-items: end;
+  align-items: flex-start;
+  gap: 9px;
   margin: 0;
   line-height: 1;
 }
+.casa-today-mark {
+  display: grid;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(41, 67, 55, 0.07);
+  color: var(--olive-dark);
+}
+.casa-today-mark svg { display: block; width: 14px; height: 14px; }
+.casa-today-read[data-tone="alert"] .casa-today-mark { background: rgba(156, 77, 66, 0.1); color: var(--alert); }
+.casa-today-read[data-tone="warn"] .casa-today-mark { background: rgba(139, 107, 63, 0.11); color: var(--warn); }
+.casa-today-figures { display: grid; justify-items: end; }
 .casa-today-value {
   display: flex;
   align-items: baseline;
@@ -601,166 +616,89 @@ html:has(.laro-casa) body {
 .casa-today-read[data-tone="warn"] .casa-today-value i,
 .casa-today-read[data-tone="warn"] .casa-today-status,
 .casa-today-read[data-tone="warn"] em { color: var(--warn); }
-.casa-day { cursor: default; overflow: visible; }
-.casa-day-port {
-  overflow: hidden;
-  cursor: grab;
-  user-select: none;
-  touch-action: pan-x;
-}
-.casa-day-port.is-drag { cursor: grabbing; }
-.casa-day-port:focus-visible { outline: 2px solid rgba(41,67,55,.35); outline-offset: 4px; border-radius: 12px; }
-.casa-day-tape {
-  transform-origin: 0 0;
-  will-change: transform;
-}
-.casa-day-plot-wrap { position: relative; height: 96px; overflow: visible; }
-.casa-day-plot { display: block; width: 100%; height: 96px; overflow: visible; }
-.casa-day-empty {
+/* The day is read along time only: one thread from midnight to midnight, a bead for each
+   thing that happened. Nothing is plotted vertically, so where a bead sits on the thread
+   is the whole message. Colour says how serious, a filled bead says still open, and a
+   burst of events too close to draw apart becomes one wider bead. */
+.casa-ribbon { position: relative; }
+.casa-ribbon-track { position: relative; height: 32px; }
+.casa-ribbon-thread,
+.casa-ribbon-past {
   position: absolute;
-  inset: 18px 12px 28px;
-  display: grid;
-  place-items: center;
-  margin: 0;
-  color: #8a9089;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: -.01em;
-  pointer-events: none;
+  top: 50%;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  transform: translateY(-50%);
 }
-
-.casa-day-band { fill: rgba(89,99,79,.1); }
-.casa-day-rail {
-  stroke: rgba(41,67,55,.16);
-  stroke-width: 1;
-  stroke-dasharray: 3 5;
-  vector-effect: non-scaling-stroke;
-}
-.casa-day-line-back {
-  fill: none;
-  stroke: rgba(250,248,243,.92);
-  stroke-width: 5.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-.casa-day-line { fill: none; stroke: var(--olive-dark); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.casa-day-stem line {
-  stroke: rgba(139,107,63,.42);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
-  vector-effect: non-scaling-stroke;
-}
-.casa-day-stem[data-tone="alert"] line,
-.casa-day-stem[data-kind="WATER_LEAK"] line { stroke: rgba(156,77,66,.55); }
-.casa-day-stem[data-kind="OFFLINE"] line { stroke: rgba(122,129,120,.45); }
-.casa-day-stem[data-active="true"] line { stroke-dasharray: none; stroke-width: 1.2; }
-.casa-day-now {
+.casa-ribbon-thread { right: 0; background: rgba(41, 67, 55, 0.1); }
+.casa-ribbon-past { background: rgba(41, 67, 55, 0.34); }
+.casa-ribbon-now {
   position: absolute;
-  width: 8px;
-  height: 8px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
   border-radius: 2px;
   background: var(--olive-dark);
   transform: translate(-50%, -50%) rotate(45deg);
-  pointer-events: none;
 }
-.casa-day-event {
+@media (prefers-reduced-motion: no-preference) {
+  .casa-ribbon-now { animation: casa-ribbon-now 2.9s ease-out infinite; }
+}
+.casa-ribbon-beads { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; }
+.casa-ribbon-beads > li { position: absolute; top: 0; height: 100%; }
+.casa-ribbon-bead {
   position: absolute;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  min-width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
   padding: 0;
   border: 0;
-  border-radius: 12px;
-  background: transparent;
-  transform: translate(-50%, -50%);
+  border-radius: 99px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--warn);
+  transform: translateY(-50%);
   cursor: pointer;
-  pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
-.casa-day-event[data-active="true"] {
-  z-index: 4;
-  width: auto;
-  height: 30px;
-  padding: 3px 9px 3px 3px;
-  gap: 7px;
-  background: var(--white);
-  box-shadow: 0 10px 22px rgba(48,54,49,.12), inset 0 0 0 1px rgba(41,67,55,.1);
-  transform: translate(-15px, -50%);
+/* The thread is deliberately thin, so grow the tap target without moving the bead. */
+.casa-ribbon-bead::after { position: absolute; inset: -14px -8px; content: ""; }
+.casa-ribbon-bead[data-many="true"] { min-width: 22px; }
+.casa-ribbon-bead[data-tone="alert"] { box-shadow: inset 0 0 0 2px var(--alert); }
+.casa-ribbon-bead[data-open] { background: var(--warn); }
+.casa-ribbon-bead[data-tone="alert"][data-open] { background: var(--alert); }
+.casa-ribbon-bead[data-active="true"] {
+  box-shadow: inset 0 0 0 2px var(--warn), 0 0 0 5px rgba(139, 107, 63, 0.15);
 }
-.casa-day-event[data-active="true"][data-side="left"] {
-  flex-direction: row-reverse;
-  padding: 3px 3px 3px 9px;
-  transform: translate(calc(-100% + 15px), -50%);
+.casa-ribbon-bead[data-tone="alert"][data-active="true"] {
+  box-shadow: inset 0 0 0 2px var(--alert), 0 0 0 5px rgba(156, 77, 66, 0.15);
 }
-.casa-day-event[data-active="true"][data-flush="start"] {
-  transform: translate(2px, -50%);
-}
-.casa-day-event[data-active="true"][data-side="left"][data-flush="end"] {
-  transform: translate(calc(-100% - 2px), -50%);
-}
-.casa-day-event-face {
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  flex: none;
-  border-radius: 7px;
-  color: #fffef8;
-  background: var(--warn);
-}
-.casa-day-event-face svg { width: 13px; height: 13px; display: block; }
-.casa-day-event[data-kind="WATER_LEAK"] .casa-day-event-face,
-.casa-day-event[data-tone="alert"] .casa-day-event-face { background: var(--alert); }
-.casa-day-event[data-kind="HUMIDITY_HIGH"] .casa-day-event-face,
-.casa-day-event[data-kind="TEMP_HIGH"] .casa-day-event-face,
-.casa-day-event[data-kind="TEMP_LOW"] .casa-day-event-face { background: var(--olive-dark); }
-.casa-day-event[data-kind="MOTION"] .casa-day-event-face,
-.casa-day-event[data-kind="BATTERY"] .casa-day-event-face,
-.casa-day-event[data-kind="DOOR_OPEN"] .casa-day-event-face { background: var(--warn); }
-.casa-day-event[data-kind="OFFLINE"] .casa-day-event-face { background: #6f776f; }
-.casa-day-flag {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: -.02em;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.casa-day-flag b { font-variant-numeric: tabular-nums; font-weight: 650; }
-.casa-day-flag i { color: var(--ink-soft); font-style: normal; font-weight: 550; }
-.casa-day-flag[data-tone="alert"] i { color: var(--alert); }
-.casa-day-flag[data-tone="warn"] i { color: var(--warn); }
-.casa-day-axis {
+.casa-ribbon-bead:focus-visible { outline: 2px solid rgba(41, 67, 55, 0.45); outline-offset: 4px; }
+.casa-ribbon-axis {
   position: relative;
-  height: 16px;
-  margin: 2px 0 0;
+  height: 15px;
+  margin: 3px 0 0;
   padding: 0;
   list-style: none;
-  color: #8a9089;
-  font-size: 11px;
-  font-weight: 500;
+  color: #9aa09a;
+  font-size: 10.5px;
+  font-weight: 520;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
 }
-.casa-day-axis li {
+.casa-ribbon-axis li {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
   white-space: nowrap;
 }
-.casa-day-axis li[data-edge="start"] { transform: translateX(0); }
-.casa-day-axis li[data-now="true"],
-.casa-day-axis li[data-edge="end"] {
+.casa-ribbon-axis li[data-edge="start"] { transform: translateX(0); }
+.casa-ribbon-axis li[data-edge="end"] { transform: translateX(-100%); }
+.casa-ribbon-axis li[data-now="true"] {
   color: var(--olive-dark);
-  transform: translateX(-100%);
+  font-weight: 640;
 }
 
 .casa-home-deck {
@@ -1748,9 +1686,10 @@ html:has(.laro-casa) body {
   to { transform: translateY(0); opacity: 1; }
 }
 
-@keyframes casa-day-now {
-  0% { box-shadow: 0 0 0 3px var(--screen), 0 0 0 3px rgba(41,67,55,.22); }
-  70%, 100% { box-shadow: 0 0 0 3px var(--screen), 0 0 0 12px rgba(41,67,55,0); }
+/* The now marker breathes so the thread reads as live rather than as a finished record. */
+@keyframes casa-ribbon-now {
+  0% { box-shadow: 0 0 0 0 rgba(41, 67, 55, 0.2); }
+  70%, 100% { box-shadow: 0 0 0 9px rgba(41, 67, 55, 0); }
 }
 
 .casa-push {
@@ -2215,7 +2154,7 @@ html:has(.laro-casa) body {
   .casa-screen[data-tone="ok"] .casa-hub::after,
   .casa-wave,
   .casa-chip[data-battery="low"],
-  .casa-day-now,
+  .casa-ribbon-now,
   .casa-tab.is-active .casa-tab-icon,
   .casa-swap,
   .casa-history-more i { animation: none; }

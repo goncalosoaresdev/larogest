@@ -229,7 +229,9 @@ Call this on launch if a token exists, to refresh the house list.
 
 Requires bearer. Full snapshot for first paint. Prefer this **or** `GET .../live`, not both on a tight loop.
 
-`200` includes `house`, `houses`, `headline`, `tone`, `updatedAt`, `devices` (richer than live), `alerts`, `today.samples`, `today.day` (chart helpers). Mobile can ignore `today.day` and build charts from samples.
+`200` includes `house`, `houses`, `headline`, `tone`, `updatedAt`, `devices` (richer than live), `alerts`, `today.samples`, `today.day` (timeline helpers). Mobile can ignore `today.day` and build its own timeline from `alerts` and `today.samples`.
+
+`today.day` is `{ from, to, marks, ticks }`. `from` is Lisbon midnight and `to` is now; the website draws a fixed 24-hour scale from `from`, so a mark's position is `(mark.at - from) / 86400000`. `ticks` are the clock times of today's alerts plus now — not a fixed hour grid. Labels that would sit on top of each other are dropped. Each mark is `{ id, at, label, detail, tone, open, alertType, readout? }` — `tone` is severity (`"alert"` only for water), `open` is whether it is still unresolved, and `readout` carries the reading captured when the alert fired (`{ kind: "humidity" | "temperature" | "battery", value }`) for the types that have one. There is deliberately no vertical value: the day is read along time only.
 
 `tone`: `"ok" | "warn" | "alert" | "offline" | "idle"`.
 
