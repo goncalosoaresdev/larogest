@@ -8,7 +8,13 @@ const nextConfig: NextConfig = {
     },
     proxyClientMaxBodySize: "40mb",
   },
-  serverExternalPackages: ["@react-pdf/renderer", "prisma", "@prisma/client", "@tuya/tuya-connector-nodejs"],
+  serverExternalPackages: [
+    "@aws-sdk/client-s3",
+    "@react-pdf/renderer",
+    "prisma",
+    "@prisma/client",
+    "@tuya/tuya-connector-nodejs",
+  ],
   async headers() {
     return [
       {
