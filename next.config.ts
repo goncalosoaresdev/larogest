@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.68.103"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "40mb",
+    },
+    proxyClientMaxBodySize: "40mb",
+  },
   serverExternalPackages: ["@react-pdf/renderer", "prisma", "@prisma/client", "@tuya/tuya-connector-nodejs"],
   async headers() {
     return [

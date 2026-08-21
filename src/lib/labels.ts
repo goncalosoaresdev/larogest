@@ -64,6 +64,34 @@ export const visitStatusLabel = {
   CANCELLED: "Cancelada",
 } as const;
 
+export const careReportVerdictLabel = {
+  OK: "Tudo OK",
+  ATTENTION: "Atenção",
+  URGENT: "Urgente",
+} as const;
+
+export const careReportStatusLabel = {
+  DRAFT: "Rascunho",
+  PUBLISHED: "Na Casa",
+} as const;
+
+export const careChecklistLabel = {
+  DOORS: "Portas",
+  WINDOWS: "Janelas",
+  MAIL: "Correio",
+  AIR: "Arejar",
+  WATER: "Água",
+  LIGHTS: "Luzes",
+  WASTE: "Lixo",
+  EXTERIOR: "Exterior",
+} as const;
+
+export const careChecklistStatusLabel = {
+  DONE: "Feito",
+  SKIPPED: "Não desta vez",
+  ATTENTION: "Atenção",
+} as const;
+
 export const pulseSiteStatusLabel = {
   ACTIVE: "Activo",
   DISABLED: "Desactivado",

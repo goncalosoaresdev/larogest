@@ -10,12 +10,14 @@ import {
   mergeCasaPastAlerts,
   type CasaAlertHistoryCursor,
 } from "@/lib/casa-alerts";
+import { casaAlertDevice, casaAlertTone, sortCasaOpenAlerts } from "@/lib/casa-alert-view";
 import { format, startOfDay } from "date-fns";
 import { CasaTodayChart } from "@/components/casa-today-chart";
 import { pulseDeviceSeverity } from "@/lib/pulse";
 import { CasaPulseMark } from "@/components/casa-pulse-mark";
 import { CasaPushEnable } from "@/components/casa-push-enable";
 import { CasaSettings } from "@/components/casa-settings";
+import { CasaReportsPane } from "@/components/casa-reports";
 import { useCasaLocale } from "@/components/use-casa-locale";
 import type { CasaHistoryCursor, CasaHistorySample } from "@/lib/casa-history";
 import {
@@ -34,10 +36,10 @@ import {
 
 const WHATSAPP = "https://wa.me/351931063911";
 
-type Tab = "casa" | "historico" | "alertas" | "definicoes";
+type Tab = "casa" | "relatorios" | "historico" | "alertas" | "definicoes";
 type Tone = "ok" | "warn" | "alert" | "offline" | "idle";
 
-const TABS: Tab[] = ["casa", "historico", "alertas"];
+const TABS: Tab[] = ["casa", "relatorios", "historico", "alertas"];
 const LIVE_MS = 60_000;
 
 export function CasaPulseView({
@@ -200,7 +202,10 @@ export function CasaPulseView({
                 />
               ) : null}
               {tab === "historico" ? <HistoryPane siteId={siteId} devices={sensors} now={clock} /> : null}
-              {tab === "alertas" ? <AlertsPane siteId={siteId} alerts={live.alerts} now={clock} /> : null}
+              {tab === "relatorios" ? <CasaReportsPane siteId={siteId} /> : null}
+              {tab === "alertas" ? (
+                <AlertsPane siteId={siteId} alerts={live.alerts} devices={sensors} now={clock} />
+              ) : null}
               {tab === "definicoes" ? <CasaSettings siteId={siteId} canSignOut={canSignOut} email={email} /> : null}
             </div>
           </main>
@@ -213,6 +218,9 @@ export function CasaPulseView({
             {TABS.includes(tab) ? <span className="casa-tab-pill" aria-hidden="true" /> : null}
             <TabButton active={tab === "casa"} label={t("tab.home")} onSelect={() => setTab("casa")}>
               <IconHome />
+            </TabButton>
+            <TabButton active={tab === "relatorios"} label={t("tab.reports")} onSelect={() => setTab("relatorios")}>
+              <IconReports />
             </TabButton>
             <TabButton active={tab === "historico"} label={t("tab.history")} onSelect={() => setTab("historico")}>
               <IconHistory />
@@ -864,10 +872,12 @@ function historyTone(sample: CasaHistorySample) {
 function AlertsPane({
   siteId,
   alerts,
+  devices,
   now,
 }: {
   siteId: string;
   alerts: CasaOwnerAlert[];
+  devices: CasaOwnerDevice[];
   now: Date;
 }) {
   const [items, setItems] = useState<CasaOwnerAlert[]>([]);
@@ -878,7 +888,7 @@ function AlertsPane({
   const generation = useRef(0);
   const sentinel = useRef<HTMLDivElement>(null);
   const { locale, t } = useCasaLocale();
-  const inbox = alerts.filter(isCasaInboxAlert);
+  const open = sortCasaOpenAlerts(alerts.filter(isCasaInboxAlert));
   const past = mergeCasaPastAlerts(
     alerts.filter((item) => item.status === "RESOLVED"),
     items,
@@ -949,67 +959,98 @@ function AlertsPane({
     return () => io.disconnect();
   }, [loadMore, status, items.length]);
 
-  if (inbox.length === 0 && past.length === 0 && status !== "loading") {
-    return (
-      <div className="casa-pane">
-        <h2>{t("alerts.emptyTitle")}</h2>
-        <p className="casa-pane-lead">{t("alerts.emptyLead")}</p>
-        {status === "error" ? <p className="casa-history-empty">{t("alerts.pastError")}</p> : null}
-        <CasaPushEnable />
-      </div>
-    );
-  }
-
   return (
     <div className="casa-pane">
       <h2>{t("alerts.title")}</h2>
-      {inbox.length === 0 && past.length > 0 ? <p className="casa-pane-lead">{t("alerts.clear")}</p> : null}
-      {inbox.length > 0 ? (
-        <section className="casa-history-day">
-          <h3>{t("alerts.now")}</h3>
-          <ol className="casa-timeline">
-            {inbox.map((item) => (
-              <AlertRow key={item.id} item={item} locale={locale} open />
+
+      {open.length > 0 ? (
+        <section className="casa-alert-open">
+          <h3 className="casa-rule">
+            <span>{t("alerts.open")}</span>
+            <i aria-hidden="true" />
+            <em>{open.length}</em>
+          </h3>
+          <ul className="casa-alert-flags">
+            {open.map((item) => (
+              <AlertFlag key={item.id} item={item} devices={devices} locale={locale} />
             ))}
-          </ol>
+          </ul>
         </section>
       ) : null}
+
+      {open.length === 0 && status !== "loading" ? (
+        <p className="casa-alert-calm">{past.length > 0 ? t("alerts.calmNote") : t("alerts.emptyLead")}</p>
+      ) : null}
+
       {days.map((day) => (
-        <section key={day.key} className="casa-history-day">
-          <h3>{day.label}</h3>
-          <ol className="casa-timeline">
+        <section key={day.key} className="casa-alert-day">
+          <h3 className="casa-rule">
+            <span>{day.label}</span>
+            <i aria-hidden="true" />
+          </h3>
+          <ol className="casa-alert-rows">
             {day.rows.map((item) => (
-              <AlertRow key={item.id} item={item} locale={locale} />
+              <AlertRow key={item.id} item={item} devices={devices} locale={locale} />
             ))}
           </ol>
         </section>
       ))}
+
       {status === "error" ? <p className="casa-history-empty">{t("alerts.pastError")}</p> : null}
-      <div ref={sentinel} className="casa-history-more" aria-hidden="true">
+      <div ref={sentinel} className="casa-history-more casa-alert-more" aria-hidden="true">
         {status === "loading" || (!done && past.length > 0) ? <i /> : null}
       </div>
-      <CasaPushEnable />
+      <footer className="casa-alert-foot">
+        <CasaPushEnable />
+      </footer>
     </div>
+  );
+}
+
+function AlertFlag({
+  item,
+  devices,
+  locale,
+}: {
+  item: CasaOwnerAlert;
+  devices: CasaOwnerDevice[];
+  locale: CasaLocale;
+}) {
+  const device = casaAlertDevice(item.deviceId, devices);
+  // The charge at trigger time is history; what the owner acts on is how flat the cell is now.
+  const battery = item.type === "BATTERY" && device?.batteryPct != null ? Math.round(device.batteryPct) : null;
+
+  return (
+    <li data-tone={casaAlertTone(item.type)}>
+      <p className="casa-alert-flag-head">
+        <strong>{casaAlertTypeLabel(locale, item.type)}</strong>
+        {battery != null ? <em>{battery}%</em> : null}
+      </p>
+      <p className="casa-alert-flag-meta">
+        {device ? <span>{device.label}</span> : null}
+        <time dateTime={item.triggeredAt}>{casaRelativeTime(item.triggeredAt, locale)}</time>
+      </p>
+    </li>
   );
 }
 
 function AlertRow({
   item,
+  devices,
   locale,
-  open = false,
 }: {
   item: CasaOwnerAlert;
+  devices: CasaOwnerDevice[];
   locale: CasaLocale;
-  open?: boolean;
 }) {
-  const { t } = useCasaLocale();
+  const device = casaAlertDevice(item.deviceId, devices);
   return (
-    <li className={open ? "is-open" : "is-ok"}>
-      <span>{open ? t("alerts.open") : t("alerts.resolved")}</span>
-      <strong>{casaAlertTypeLabel(locale, item.type)}</strong>
-      <small>
-        {item.message} · {casaRelativeTime(item.triggeredAt, locale)}
-      </small>
+    <li data-tone={casaAlertTone(item.type)}>
+      <time dateTime={item.triggeredAt}>{format(new Date(item.triggeredAt), "HH:mm")}</time>
+      <span>
+        <strong>{casaAlertTypeLabel(locale, item.type)}</strong>
+        {device ? <small>{device.label}</small> : null}
+      </span>
     </li>
   );
 }
@@ -1155,6 +1196,16 @@ function IconHome() {
         strokeLinecap="square"
         strokeLinejoin="miter"
       />
+    </svg>
+  );
+}
+
+function IconReports() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 4.5h7.2L18.5 9v10.5H7V4.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="miter" />
+      <path d="M14 4.5V9h4.5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="miter" />
+      <path d="M9.5 12.5h5M9.5 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square" />
     </svg>
   );
 }

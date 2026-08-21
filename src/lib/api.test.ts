@@ -12,7 +12,7 @@ import {
   resetRateLimitForTests,
 } from "./api";
 import { ownerOtpEmailSchema, ownerOtpVerifySchema } from "./validations";
-import { readPdf } from "./storage";
+import { readCarePhoto, readPdf } from "./storage";
 
 function failIssues(parsed: { success: true } | { success: false; error: { issues: { path: PropertyKey[] }[] } }) {
   assert.equal(parsed.success, false);
@@ -85,5 +85,10 @@ describe("api helpers", () => {
   it("rejects pdf path traversal", async () => {
     await assert.rejects(() => readPdf("../secret.pdf"));
     await assert.rejects(() => readPdf("/tmp/secret.pdf"));
+  });
+
+  it("rejects care photo path traversal", async () => {
+    await assert.rejects(() => readCarePhoto("../secret.jpg"));
+    await assert.rejects(() => readCarePhoto("/tmp/secret.jpg"));
   });
 });

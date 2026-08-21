@@ -1,0 +1,41 @@
+import { NextResponse } from "next/server";
+import { jsonError, limited } from "@/lib/api";
+import { requireCasaApiSite } from "@/lib/casa";
+import { prisma } from "@/lib/prisma";
+import { readCarePhoto } from "@/lib/storage";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ siteId: string; reportId: string; photoId: string }> },
+) {
+  const blocked = limited(request, "casa-report-photos", 60);
+  if (blocked) return blocked;
+  try {
+    const { siteId, reportId, photoId } = await params;
+    const access = await requireCasaApiSite(siteId, request);
+    if (access.error) return access.error;
+    const photo = await prisma.careReportPhoto.findFirst({
+      where: {
+        id: photoId,
+        item: {
+          reportId,
+          status: { not: "SKIPPED" },
+          report: { propertyId: access.site.propertyId, status: "PUBLISHED" },
+        },
+      },
+      select: { path: true, mime: true },
+    });
+    if (!photo) return jsonError(404, "not_found");
+    const body = await readCarePhoto(photo.path);
+    return new NextResponse(Uint8Array.from(body), {
+      headers: {
+        "Content-Type": photo.mime,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return jsonError(500, "server_error");
+  }
+}

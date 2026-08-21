@@ -974,6 +974,401 @@ html:has(.laro-casa) body {
   color: #fffefa;
 }
 .casa-history-empty { margin: 28px 0 0; color: var(--ink-soft); font-size: 14px; }
+/* Reports read as a document, not a feed. The newest visit is printed straight
+   on the paper: one verdict, the proof, a stamped sign-off. Earlier
+   visits stay a ruled ledger. Section rules carry that section's own count. */
+.casa-rule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  color: var(--olive);
+  font-size: 9.5px;
+  font-weight: 680;
+  letter-spacing: 0.17em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.casa-rule i {
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  background: rgba(41, 67, 55, 0.16);
+}
+.casa-rule em {
+  flex: none;
+  color: #8f948d;
+  font-style: normal;
+  font-weight: 620;
+  letter-spacing: 0.13em;
+}
+
+.casa-report-spread { margin: 24px 0 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .casa-report-spread > * {
+    animation: casa-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--step, 0) * 60ms);
+  }
+  .casa-report-spread > :nth-child(2) { --step: 1; }
+  .casa-report-spread > :nth-child(3) { --step: 2; }
+  .casa-report-spread > :nth-child(4) { --step: 3; }
+  .casa-report-spread > :nth-child(5) { --step: 4; }
+  .casa-report-spread > :nth-child(6) { --step: 5; }
+}
+@keyframes casa-rise {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+.casa-report-verdict {
+  max-width: 17ch;
+  margin: 15px 0 0;
+  color: var(--ink);
+  font-size: clamp(29px, 8.8vw, 38px);
+  font-weight: 620;
+  letter-spacing: -0.038em;
+  line-height: 1.03;
+  text-wrap: balance;
+}
+.casa-report-spread[data-verdict="ATTENTION"] .casa-report-verdict { color: #7c5c32; }
+.casa-report-spread[data-verdict="URGENT"] .casa-report-verdict { color: var(--alert); }
+
+.casa-report-note {
+  max-width: 44ch;
+  margin: 14px 0 0;
+  color: #4d554e;
+  font-size: 15.5px;
+  letter-spacing: -0.012em;
+  line-height: 1.6;
+}
+
+.casa-report-flagset { margin: 26px 0 0; }
+.casa-report-flags {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.casa-report-flags > li {
+  margin: 0;
+  padding: 13px 15px 15px;
+  border-left: 2px solid var(--warn);
+  border-radius: 3px 15px 15px 3px;
+  background: rgba(139, 107, 63, 0.065);
+}
+.casa-report-spread[data-verdict="URGENT"] .casa-report-flags > li,
+.casa-report-row[data-verdict="URGENT"] .casa-report-flags > li {
+  border-left-color: var(--alert);
+  background: rgba(156, 77, 66, 0.065);
+}
+.casa-report-flag-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+.casa-report-flag-head strong {
+  color: var(--ink);
+  font-size: 16.5px;
+  font-weight: 610;
+  letter-spacing: -0.035em;
+}
+.casa-report-flag-head em {
+  color: var(--warn);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.casa-report-spread[data-verdict="URGENT"] .casa-report-flag-head em,
+.casa-report-row[data-verdict="URGENT"] .casa-report-flag-head em { color: var(--alert); }
+.casa-report-flag-note {
+  margin: 5px 0 0;
+  color: #64695f;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.casa-report-sheet { margin: 24px 0 0; }
+.casa-report-proofs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.casa-report-flags .casa-report-proofs,
+.casa-report-row-body > .casa-report-proofs { margin-top: 12px; }
+.casa-report-proofs > li { min-width: 0; margin: 0; }
+.casa-report-proofs.has-lead > li:first-child { grid-column: span 2; }
+.casa-report-proofs button {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 11px;
+  background: rgba(41, 67, 55, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(41, 67, 55, 0.09);
+  cursor: zoom-in;
+}
+.casa-report-proofs img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.casa-report-proofs.has-lead > li:first-child img { aspect-ratio: 3 / 2; }
+.casa-report-proofs.is-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.casa-report-proofs.is-evidence > li { width: 88px; }
+.casa-report-proofs.is-evidence button { border-radius: 8px; }
+.casa-report-proofs button:hover img { transform: scale(1.03); }
+.casa-report-proofs button:focus-visible { outline: 2px solid rgba(41, 67, 55, 0.5); outline-offset: 2px; }
+
+.casa-report-coverage { margin: 26px 0 0; }
+.casa-report-remarks { display: grid; gap: 9px; margin: 13px 0 0; }
+.casa-report-remarks > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+.casa-report-remarks dt {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.casa-report-remarks dd {
+  margin: 0;
+  color: #64695f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.casa-report-covered {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 4px;
+  margin: 13px 0 0;
+  padding: 0;
+  color: #4c5750;
+  font-size: 14.5px;
+  letter-spacing: -0.015em;
+  list-style: none;
+}
+.casa-report-covered li { display: flex; gap: 8px; margin: 0; }
+.casa-report-covered li:not(:last-child)::after { color: rgba(41, 67, 55, 0.28); content: "·"; }
+
+.casa-report-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  margin: 30px 0 0;
+  padding-top: 17px;
+  border-top: 1px solid rgba(41, 67, 55, 0.12);
+}
+.casa-report-seal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 0 auto;
+  padding: 9px 15px 9px 11px;
+  border: 1px solid rgba(41, 67, 55, 0.34);
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 2.5px var(--screen), inset 0 0 0 3.5px rgba(41, 67, 55, 0.2);
+  color: var(--olive-dark);
+  mix-blend-mode: multiply;
+}
+.casa-report-seal-mark { flex: none; width: 23px; height: 23px; }
+.casa-report-seal-mark svg { width: 100%; height: 100%; }
+.casa-report-seal-body { display: grid; gap: 1px; min-width: 0; }
+.casa-report-seal b {
+  color: var(--olive);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.casa-report-seal strong { font-size: 13px; font-weight: 620; letter-spacing: -0.025em; line-height: 1.2; }
+.casa-report-seal time {
+  color: var(--olive);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+.casa-report-next { margin: 0; }
+.casa-report-next small {
+  display: block;
+  color: var(--olive);
+  font-size: 8.5px;
+  font-weight: 680;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.casa-report-next time {
+  display: block;
+  margin-top: 5px;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 570;
+  letter-spacing: -0.025em;
+}
+
+.casa-report-ledger { margin: 40px 0 0; }
+.casa-report-rows { margin: 6px 0 0; padding: 0; list-style: none; }
+.casa-report-rows > li { margin: 0; }
+.casa-report-row { border-top: 1px solid rgba(41, 67, 55, 0.1); }
+.casa-report-rows > li:first-child .casa-report-row { border-top: 0; }
+.casa-report-row-head {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0 12px;
+  width: 100%;
+  padding: 15px 0 16px;
+  text-align: left;
+}
+.casa-report-row-head:disabled { cursor: default; }
+.casa-report-row-head:focus-visible { outline: 2px solid rgba(41, 67, 55, 0.45); outline-offset: 1px; }
+.casa-report-row-day {
+  color: var(--olive);
+  font-size: 10.5px;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.casa-report-row-copy { display: grid; gap: 2px; min-width: 0; }
+.casa-report-row-copy strong { font-size: 15px; font-weight: 580; letter-spacing: -0.03em; }
+.casa-report-row-copy small { color: var(--ink-soft); font-size: 12.5px; letter-spacing: -0.01em; }
+.casa-report-row[data-verdict="ATTENTION"] .casa-report-row-copy strong { color: var(--warn); }
+.casa-report-row[data-verdict="URGENT"] .casa-report-row-copy strong { color: var(--alert); }
+.casa-report-row-meta { color: #9aa09a; font-size: 10.5px; font-weight: 560; white-space: nowrap; }
+.casa-report-row-head[data-panel-open] .casa-report-row-meta { opacity: 0; }
+.casa-report-row-chevron {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(41, 67, 55, 0.055);
+  color: var(--olive-dark);
+}
+.casa-report-row-chevron svg { width: 14px; height: 14px; transition: transform 0.24s ease; }
+.casa-report-row-head[data-panel-open] .casa-report-row-chevron svg { transform: rotate(180deg); }
+.casa-report-row-panel { overflow: hidden; }
+.casa-report-row-panel[data-starting-style],
+.casa-report-row-panel[data-ending-style] { height: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .casa-report-row-panel { height: var(--collapsible-panel-height); transition: height 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+}
+.casa-report-row-body { padding: 0 0 24px 70px; }
+.casa-report-row-body > :first-child { margin-top: 0; }
+.casa-report-row-body .casa-report-note { font-size: 14.5px; }
+
+.casa-report-skel { display: grid; gap: 11px; margin: 26px 0 0; }
+.casa-report-skel i { display: block; border-radius: 7px; background: rgba(41, 67, 55, 0.07); }
+.casa-report-skel-rule { width: 46%; height: 8px; }
+.casa-report-skel-line { width: 72%; height: 29px; margin-top: 5px; }
+.casa-report-skel-line.is-short { width: 48%; }
+.casa-report-skel-text { width: 92%; height: 12px; margin-top: 6px; }
+.casa-report-skel-text.is-short { width: 64%; }
+.casa-report-skel-sheet { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 12px; }
+.casa-report-skel-sheet i { aspect-ratio: 1; border-radius: 11px; }
+@media (prefers-reduced-motion: no-preference) {
+  .casa-report-skel i { animation: casa-report-fade 1.5s ease-in-out infinite; }
+}
+@keyframes casa-report-fade {
+  50% { opacity: 0.5; }
+}
+
+@media (max-width: 400px) {
+  .casa-report-row-head { grid-template-columns: 50px minmax(0, 1fr) auto; }
+  .casa-report-row-meta { display: none; }
+  .casa-report-row-body { padding-left: 62px; }
+  .casa-report-remarks > div { grid-template-columns: 74px minmax(0, 1fr); gap: 10px; }
+  .casa-report-foot { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .casa-report-seal { margin-left: 0; }
+}
+.casa-report-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 28px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+}
+.casa-report-viewer-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(24, 32, 28, 0.78);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  backdrop-filter: blur(16px) saturate(1.1);
+}
+.casa-report-viewer img {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 720px);
+  max-height: min(78dvh, 860px);
+  object-fit: contain;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.casa-report-viewer-close,
+.casa-report-viewer-nav {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 254, 250, 0.16);
+  color: #fffefa;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.casa-report-viewer-close { top: calc(12px + env(safe-area-inset-top, 0px)); right: 14px; }
+.casa-report-viewer-nav.is-prev { left: 10px; top: 50%; transform: translateY(-50%); }
+.casa-report-viewer-nav.is-next { right: 10px; top: 50%; transform: translateY(-50%); }
+.casa-report-viewer-close svg,
+.casa-report-viewer-nav svg { width: 18px; height: 18px; }
+.casa-report-viewer-close:focus-visible,
+.casa-report-viewer-nav:focus-visible {
+  outline: 2px solid #fffefa;
+  outline-offset: 2px;
+}
+.casa-report-viewer-caption {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 15px 0 0;
+  color: rgba(255, 254, 250, 0.9);
+}
+.casa-report-viewer-caption span {
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+.casa-report-viewer-caption b {
+  color: rgba(255, 254, 250, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
 
 .casa-settings { margin: 8px 2px 28px; }
 .casa-settings h3 {
@@ -1088,13 +1483,106 @@ html:has(.laro-casa) body {
 .casa-history-list small { color: var(--ink-soft); font-size: 13px; }
 .casa-history-list li[data-tone="alert"] strong { color: var(--alert); }
 .casa-history-list li[data-tone="warn"] strong { color: var(--warn); }
-.casa-timeline { margin: 8px 0 0; padding: 0 0 0 16px; border-left: 1px solid var(--line); list-style: none; }
-.casa-timeline li { position: relative; margin: 0 0 24px; padding-left: 18px; }
-.casa-timeline li::before { position: absolute; top: 6px; left: -21px; width: 9px; height: 9px; border-radius: 50%; background: var(--olive); content: ""; }
-.casa-timeline li.is-open::before { background: var(--alert); box-shadow: 0 0 0 4px rgba(156,77,66,.12); }
-.casa-timeline span { color: #838980; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
-.casa-timeline strong { display: block; margin: 3px 0 2px; font-size: 16px; font-weight: 600; }
-.casa-timeline small { color: var(--ink-soft); font-size: 13px; }
+/* Events borrow the reports vocabulary: what is open is a flagged block at the top,
+   what is settled is a ruled ledger with the clock time in the margin. The day rule
+   already says these are past, so no row wears a "resolved" tag. */
+.casa-alert-open { margin: 22px 0 0; }
+.casa-alert-flags {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.casa-alert-flags > li {
+  margin: 0;
+  padding: 13px 15px 14px;
+  border-left: 2px solid var(--warn);
+  border-radius: 3px 15px 15px 3px;
+  background: rgba(139, 107, 63, 0.065);
+}
+.casa-alert-flags > li[data-tone="alert"] {
+  border-left-color: var(--alert);
+  background: rgba(156, 77, 66, 0.085);
+}
+.casa-alert-flag-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+.casa-alert-flag-head strong {
+  flex: 1;
+  min-width: 0;
+  color: #7c5c32;
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.casa-alert-flag-head em {
+  flex: none;
+  color: #8a7350;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+}
+.casa-alert-flags > li[data-tone="alert"] .casa-alert-flag-head strong { color: var(--alert); }
+.casa-alert-flag-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 7px;
+  margin: 4px 0 0;
+  color: #64695f;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+}
+.casa-alert-flag-meta span:not(:last-child)::after { color: #a8ada4; content: "·"; margin-left: 7px; }
+
+.casa-alert-calm {
+  max-width: 40ch;
+  margin: 4px 0 0;
+  color: #4d554e;
+  font-size: 15.5px;
+  letter-spacing: -0.012em;
+  line-height: 1.6;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .casa-alert-calm,
+  .casa-alert-open > * {
+    animation: casa-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .casa-alert-open > :nth-child(2) { animation-delay: 70ms; }
+}
+
+.casa-alert-day { margin: 34px 0 0; }
+.casa-alert-rows { margin: 4px 0 0; padding: 0; list-style: none; }
+.casa-alert-rows > li {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0 12px;
+  margin: 0;
+  padding: 14px 0 15px;
+  border-top: 1px solid rgba(41, 67, 55, 0.1);
+}
+.casa-alert-rows > li:first-child { border-top: 0; }
+.casa-alert-rows time {
+  color: var(--olive);
+  font-size: 12px;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+}
+.casa-alert-rows > li > span { display: grid; gap: 2px; min-width: 0; }
+.casa-alert-rows strong { font-size: 15px; font-weight: 580; letter-spacing: -0.03em; }
+.casa-alert-rows > li[data-tone="alert"] strong { color: var(--alert); }
+.casa-alert-rows small { color: var(--ink-soft); font-size: 12.5px; letter-spacing: -0.01em; }
+
+/* The pane owns the trailing space, so the load sentinel stays out of the way. */
+.casa-alert-more { margin: 4px 0 0; min-height: 26px; }
+.casa-alert-foot { margin: 0; padding-top: 20px; border-top: 1px solid rgba(41, 67, 55, 0.12); }
+.casa-alert-foot:empty { display: none; }
+.casa-alert-foot .casa-push { margin: 0; }
 .casa-tabbar {
   position: absolute;
   bottom: max(12px, env(safe-area-inset-bottom, 12px));
@@ -1733,5 +2221,8 @@ html:has(.laro-casa) body {
   .casa-history-more i { animation: none; }
   .casa-wave { opacity: 0.22; transform: scale(1.55); }
   .casa-tab-pill,
-  .casa-appbar { transition: none; }
+  .casa-appbar,
+  .casa-report-row-chevron svg,
+  .casa-report-row-panel { transition: none; }
+  .casa-report-proofs img { transition: none; }
 }

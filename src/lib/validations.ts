@@ -1,5 +1,6 @@
 import { IoTProvider } from "@prisma/client";
 import { z } from "zod";
+import { CARE_REPORT_SUMMARY_MAX } from "./care-report";
 
 export const leadFormSchema = z.object({
   name: z.string().min(2, "Indica o nome"),
@@ -40,6 +41,20 @@ export const visitFormSchema = z.object({
   scheduledAt: z.string().min(1, "Indica a data e hora"),
   notes: z.string().optional(),
 });
+
+export const careReportDraftSchema = z.object({
+  id: z.string().optional(),
+  propertyId: z.string().min(1, "Escolhe o imóvel"),
+  visitId: z.string().optional(),
+  visitedAt: z.string().min(1, "Indica quando foi a visita"),
+  visitedByName: z.string().min(2, "Indica quem foi à casa"),
+  verdict: z.enum(["OK", "ATTENTION", "URGENT"]),
+  summary: z.string().trim().max(CARE_REPORT_SUMMARY_MAX, "O resumo é demasiado longo"),
+  nextVisitAt: z.string().optional(),
+});
+
+export const careReportPublishSchema = careReportDraftSchema;
+export const careReportFormSchema = careReportDraftSchema;
 
 export const pulseSiteSchema = z.object({
   ownerName: z.string().min(2, "Indica o proprietário"),

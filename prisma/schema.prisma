@@ -253,6 +253,7 @@ model Property {
   contracts Contract[]
   visits    Visit[]
   pulseSite PulseSite?
+  careReports CareReport[]
 }
 
 model Lead {
@@ -291,9 +292,86 @@ model Visit {
   outcome     String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  careReport  CareReport?
 
   @@index([scheduledAt, status])
   @@index([leadId, scheduledAt])
+}
+
+model CareReport {
+  id            String            @id @default(cuid())
+  propertyId    String
+  property      Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  visitId       String?           @unique
+  visit         Visit?            @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  visitedAt     DateTime
+  visitedByName String
+  verdict       CareReportVerdict
+  summary       String
+  nextVisitAt   DateTime?
+  status        CareReportStatus  @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  items         CareReportItem[]
+
+  @@index([propertyId, status, visitedAt])
+}
+
+model CareReportItem {
+  id        String              @id @default(cuid())
+  reportId  String
+  report    CareReport          @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  key       CareChecklistKey
+  status    CareChecklistStatus @default(SKIPPED)
+  note      String?
+  sortOrder Int
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  photos    CareReportPhoto[]
+
+  @@unique([reportId, key])
+  @@index([reportId, sortOrder])
+}
+
+model CareReportPhoto {
+  id        String         @id @default(cuid())
+  itemId    String
+  item      CareReportItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  path      String
+  mime      String
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+
+  @@index([itemId, sortOrder])
+}
+
+enum CareChecklistKey {
+  DOORS
+  WINDOWS
+  MAIL
+  AIR
+  WATER
+  LIGHTS
+  WASTE
+  EXTERIOR
+}
+
+enum CareChecklistStatus {
+  DONE
+  SKIPPED
+  ATTENTION
+}
+
+enum CareReportVerdict {
+  OK
+  ATTENTION
+  URGENT
+}
+
+enum CareReportStatus {
+  DRAFT
+  PUBLISHED
 }
 
 model PulseSite {

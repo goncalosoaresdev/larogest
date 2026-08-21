@@ -281,6 +281,54 @@ Page size is server-controlled (~24). Stop when `nextCursor` is `null` or `alert
 
 ---
 
+### `GET /api/casa/{siteId}/reports`
+
+Requires bearer. Newest-first **published** visit reports for this house. Drafts never appear. Owners cannot create or edit reports.
+
+`200`:
+
+```json
+{
+  "reports": [
+    {
+      "id": "cuid",
+      "visitedAt": "ISO",
+      "visitedByName": "Ana",
+      "verdict": "OK",
+      "summary": "Casa arejada, sem cheiros…",
+      "nextVisitAt": "ISO" | null,
+      "publishedAt": "ISO",
+      "checklist": [
+        {
+          "key": "DOORS",
+          "status": "DONE",
+          "note": null,
+          "photos": [{ "id": "cuid" }]
+        }
+      ]
+    }
+  ]
+}
+```
+
+`verdict` is one of `OK` | `ATTENTION` | `URGENT`. `checklist[].key` is one of `DOORS` | `WINDOWS` | `MAIL` | `AIR` | `WATER` | `LIGHTS` | `WASTE` | `EXTERIOR`. `checklist[].status` is `DONE` or `ATTENTION` — skipped jobs are omitted. Cap is server-controlled (~50). There is no cursor in this version. Photo ids are fetched from the photo route below. Drafts never appear.
+
+- `404` `{ "error": "not_found" }`
+- `401` `{ "error": "unauthenticated" }`
+
+---
+
+### `GET /api/casa/{siteId}/reports/{reportId}/photos/{photoId}`
+
+Requires bearer. Image bytes for one photo on a **published** report of this house.
+
+`200` with `Content-Type` `image/jpeg` | `image/png` | `image/webp`. Do not cache.
+
+- `404` `{ "error": "not_found" }` unpublished, wrong house, or missing photo
+- `401` `{ "error": "unauthenticated" }`
+
+---
+
 ### `GET /api/casa/{siteId}/history`
 
 Requires bearer. Newest-first pages of samples.

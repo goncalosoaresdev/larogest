@@ -34,8 +34,9 @@ describe("casa locale lookup", () => {
     assert.equal(casaText("en", "today.battery"), "battery");
     assert.equal(casaText("pt", "today.none"), "Sem alertas hoje");
     assert.equal(casaText("en", "today.none"), "No alerts today");
-    assert.equal(casaText("pt", "alerts.now"), "Agora");
-    assert.equal(casaText("en", "alerts.clear"), "Nothing open right now.");
+    assert.equal(casaText("pt", "alerts.open"), "Em aberto");
+    assert.equal(casaText("pt", "alerts.emptyLead"), "Se algo mudar na casa, aparece aqui. A Laro recebe o mesmo aviso.");
+    assert.equal(casaText("en", "alerts.calmNote"), "Nothing open. If something changes, the alert lands here and on your phone.");
     assert.equal(casaAlertMarkLabel("pt", "MOTION"), "Movimento");
     assert.equal(casaAlertMarkLabel("en", "WATER_LEAK"), "Leak");
     assert.equal(casaText("pt", "hello.morning"), "Bom dia,");
@@ -51,7 +52,18 @@ describe("casa locale lookup", () => {
     assert.equal(casaText("pt", "settings.signOut"), "Sair");
     assert.equal(casaText("en", "settings.signOut"), "Sign out");
     assert.equal(casaText("pt", "home.emptyTitle"), "Ainda sem casas Pulse");
-    assert.equal(casaText("en", "home.emptyTitle"), "No Pulse houses yet");
+    assert.equal(casaText("pt", "tab.reports"), "Relatórios");
+    assert.equal(casaText("en", "tab.reports"), "Reports");
+    assert.equal(casaText("pt", "reports.empty"), "Quando a Laro visitar, o relatório aparece aqui.");
+    assert.equal(casaText("pt", "reports.check.doors"), "Portas");
+    assert.equal(casaText("en", "reports.check.attention"), "Needs attention");
+    assert.equal(casaText("pt", "reports.line.ok"), "A casa está bem.");
+    assert.equal(casaText("en", "reports.line.ok"), "The house is fine.");
+    assert.equal(casaText("pt", "reports.line.urgent"), "Precisa de atenção agora.");
+    assert.equal(casaText("pt", "reports.covered"), "Verificado");
+    assert.equal(casaText("en", "reports.covered"), "Checked");
+    assert.equal(casaText("pt", "reports.seal"), "Visita verificada");
+    assert.equal(casaText("pt", "reports.photos.many", { n: 3 }), "3 fotos");
   });
 
   it("switches from the default Portuguese locale to English", () => {
