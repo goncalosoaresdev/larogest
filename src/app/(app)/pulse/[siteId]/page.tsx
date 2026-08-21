@@ -18,7 +18,7 @@ export default async function PulseSitePage({
       alerts: { orderBy: { triggeredAt: "desc" }, take: 30 },
     },
   });
-  if (!site) notFound();
+  if (!site || site.demo) notFound();
 
   const lead = site.property.leads[0];
   const adapter = getIoTAdapter(site.provider);

@@ -17,6 +17,15 @@ export function isCasaAuthApiPath(pathname: string) {
   return pathname === "/api/casa/auth" || pathname.startsWith("/api/casa/auth/");
 }
 
+export function isCasaDemoPath(pathname: string) {
+  return (
+    pathname === "/casa/demo" ||
+    pathname.startsWith("/casa/demo/") ||
+    pathname === "/api/casa/demo" ||
+    pathname.startsWith("/api/casa/demo/")
+  );
+}
+
 export function hasBearerAuthorization(source: Request | HeaderReader) {
   const value = headerReader(source).get("authorization")?.trim() ?? "";
   return /^Bearer\s+\S+/i.test(value);

@@ -17,10 +17,12 @@ export function CasaSettings({
   siteId,
   canSignOut = true,
   email = null,
+  demo = false,
 }: {
   siteId: string;
   canSignOut?: boolean;
   email?: string | null;
+  demo?: boolean;
 }) {
   const [prefs, setPrefs] = useState<CasaNotifyPrefs>(DEFAULT_CASA_NOTIFY);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -32,6 +34,10 @@ export function CasaSettings({
 
   useEffect(() => {
     setPushState(getCasaPushStatus());
+    if (demo) {
+      setStatus("ready");
+      return;
+    }
     let cancelled = false;
     void fetch(`/api/casa/${siteId}/notify`)
       .then((response) => {
@@ -50,7 +56,7 @@ export function CasaSettings({
     return () => {
       cancelled = true;
     };
-  }, [siteId]);
+  }, [siteId, demo]);
 
   async function save(on: boolean) {
     const previous = prefs;
@@ -116,47 +122,51 @@ export function CasaSettings({
         <LanguageSwitch locale={locale} onChange={setLocale} label={t("settings.language")} />
       </section>
 
-      <section className="casa-settings">
-        <h3>{t("settings.notifications")}</h3>
-        {pushState === "ios" ? <p className="casa-settings-note">{t("settings.ios")}</p> : null}
-        {note ? <p className="casa-settings-note">{note}</p> : null}
-        <button
-          type="button"
-          className="casa-setting"
-          disabled={busy || status !== "ready"}
-          onClick={() => void save(!prefs.push)}
-        >
-          <span>
-            <strong>{t("settings.push")}</strong>
-            <small>{t("settings.pushHint")}</small>
-          </span>
-          <i className={`casa-switch${prefs.push ? " is-on" : ""}`} aria-hidden="true" />
-        </button>
-      </section>
+      {demo ? null : (
+        <>
+          <section className="casa-settings">
+            <h3>{t("settings.notifications")}</h3>
+            {pushState === "ios" ? <p className="casa-settings-note">{t("settings.ios")}</p> : null}
+            {note ? <p className="casa-settings-note">{note}</p> : null}
+            <button
+              type="button"
+              className="casa-setting"
+              disabled={busy || status !== "ready"}
+              onClick={() => void save(!prefs.push)}
+            >
+              <span>
+                <strong>{t("settings.push")}</strong>
+                <small>{t("settings.pushHint")}</small>
+              </span>
+              <i className={`casa-switch${prefs.push ? " is-on" : ""}`} aria-hidden="true" />
+            </button>
+          </section>
 
-      <section className="casa-settings">
-        <h3>{t("settings.quiet")}</h3>
-        <button
-          type="button"
-          className="casa-setting"
-          disabled={busy || status !== "ready" || !prefs.push}
-          onClick={() => void patch({ quietEnabled: !prefs.quietEnabled })}
-        >
-          <span>
-            <strong>{t("settings.dnd")}</strong>
-            <small>{t("settings.dndHint")}</small>
-          </span>
-          <i className={`casa-switch${prefs.quietEnabled ? " is-on" : ""}`} aria-hidden="true" />
-        </button>
-        {prefs.quietEnabled ? (
-          <QuietHoursPicker
-            start={prefs.quietStart}
-            end={prefs.quietEnd}
-            disabled={busy || status !== "ready"}
-            onChange={(next) => void patch(next)}
-          />
-        ) : null}
-      </section>
+          <section className="casa-settings">
+            <h3>{t("settings.quiet")}</h3>
+            <button
+              type="button"
+              className="casa-setting"
+              disabled={busy || status !== "ready" || !prefs.push}
+              onClick={() => void patch({ quietEnabled: !prefs.quietEnabled })}
+            >
+              <span>
+                <strong>{t("settings.dnd")}</strong>
+                <small>{t("settings.dndHint")}</small>
+              </span>
+              <i className={`casa-switch${prefs.quietEnabled ? " is-on" : ""}`} aria-hidden="true" />
+            </button>
+            {prefs.quietEnabled ? (
+              <QuietHoursPicker
+                start={prefs.quietStart}
+                end={prefs.quietEnd}
+                disabled={busy || status !== "ready"}
+                onChange={(next) => void patch(next)}
+              />
+            ) : null}
+          </section>
+        </>
+      )}
 
       {canSignOut ? (
         <section className="casa-settings">

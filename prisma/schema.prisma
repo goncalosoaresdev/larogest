@@ -383,6 +383,7 @@ model PulseSite {
   locationId   String?
   locationName String?
   publicToken  String?     @unique
+  demo        Boolean     @default(false)
   notes       String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

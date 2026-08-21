@@ -1,5 +1,6 @@
 import type { PulseAlert, PulseDevice, PulseSample } from "@prisma/client";
 import { jsonError } from "@/lib/api";
+import { resolveCasaSiteId } from "@/lib/casa-demo";
 import { ownerCanAccessSite, siteOwnerLookup } from "@/lib/owner-auth";
 import { prisma } from "@/lib/prisma";
 import { buildCasaDay, startOfLisbonDay } from "@/lib/casa-day";
@@ -153,13 +154,21 @@ export function canAccessCasaSite(session: AuthSession, site: CasaSitePerson) {
 }
 
 export async function requireCasaApiSite(siteId: string, request?: Request) {
-  const session = await getSession(request);
-  if (!session?.user) return { site: null, error: jsonError(401, "unauthenticated") };
-
+  const id = resolveCasaSiteId(siteId);
   const site = await prisma.pulseSite.findUnique({
-    where: { id: siteId },
+    where: { id },
     include: { property: { include: { person: true } } },
   });
+  const write = Boolean(request && request.method !== "GET" && request.method !== "HEAD");
+  if (site?.demo) {
+    if (write || !isPulseSiteActive(site.status)) {
+      return { site: null, error: jsonError(404, "not_found") };
+    }
+    return { site, error: null };
+  }
+
+  const session = await getSession(request);
+  if (!session?.user) return { site: null, error: jsonError(401, "unauthenticated") };
   if (!site || !isPulseSiteActive(site.status) || !canAccessCasaSite(session, site)) {
     return { site: null, error: jsonError(404, "not_found") };
   }
@@ -204,6 +213,7 @@ export async function listOwnerHouses(userId: string): Promise<CasaHouseOption[]
   const sites = await prisma.pulseSite.findMany({
     where: {
       status: { not: PULSE_SITE_DISABLED },
+      demo: false,
       property: {
         person: {
           OR: [
@@ -265,6 +275,7 @@ export async function loadCasaHouse(siteId: string): Promise<CasaHouse | null> {
   const siblings = await prisma.pulseSite.findMany({
     where: {
       status: { not: PULSE_SITE_DISABLED },
+      demo: false,
       property: { personId: site.property.personId },
     },
     select: {

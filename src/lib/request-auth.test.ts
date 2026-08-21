@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { authHeadersFrom, hasBearerAuthorization, isCasaAuthApiPath, requestIp } from "./request-auth";
+import { authHeadersFrom, hasBearerAuthorization, isCasaAuthApiPath, isCasaDemoPath, requestIp } from "./request-auth";
 
 describe("isCasaAuthApiPath", () => {
   it("matches only the owner auth API prefix", () => {
@@ -10,6 +10,15 @@ describe("isCasaAuthApiPath", () => {
     assert.equal(isCasaAuthApiPath("/api/casa"), false);
     assert.equal(isCasaAuthApiPath("/api/casa/abc/live"), false);
     assert.equal(isCasaAuthApiPath("/api/auth/sign-in/email-otp"), false);
+  });
+});
+
+describe("isCasaDemoPath", () => {
+  it("matches the public demo page and API prefix", () => {
+    assert.equal(isCasaDemoPath("/casa/demo"), true);
+    assert.equal(isCasaDemoPath("/api/casa/demo/live"), true);
+    assert.equal(isCasaDemoPath("/casa/entrar"), false);
+    assert.equal(isCasaDemoPath("/api/casa/abc/live"), false);
   });
 });
 

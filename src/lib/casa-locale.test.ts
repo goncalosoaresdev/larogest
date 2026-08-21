@@ -18,6 +18,9 @@ describe("casa locale lookup", () => {
   it("returns settings title, quiet-hours line, history empty, and alert type in both languages", () => {
     assert.equal(casaText("pt", "settings.title"), "Definições");
     assert.equal(casaText("en", "settings.title"), "Settings");
+    assert.equal(casaText("pt", "demo.house"), "Casa de Campo");
+    assert.equal(casaText("en", "demo.house"), "Country house");
+    assert.equal(casaText("pt", "demo.badge"), "Demo");
     assert.equal(
       casaText("pt", "settings.dndHint"),
       "Só movimento e fugas de água passam. Os outros avisos ficam em silêncio.",

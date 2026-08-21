@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { hasBearerAuthorization, isCasaAuthApiPath } from "@/lib/request-auth";
+import { hasBearerAuthorization, isCasaAuthApiPath, isCasaDemoPath } from "@/lib/request-auth";
 
 function isPublicPath(pathname: string) {
   if (pathname === "/") return true;
@@ -10,6 +10,7 @@ function isPublicPath(pathname: string) {
   if (pathname === "/casa/entrar" || pathname.startsWith("/casa/entrar/")) return true;
   if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) return true;
   if (isCasaAuthApiPath(pathname)) return true;
+  if (isCasaDemoPath(pathname)) return true;
   return false;
 }
 

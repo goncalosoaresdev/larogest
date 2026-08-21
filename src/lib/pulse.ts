@@ -152,7 +152,7 @@ export async function autoLinkPulseSite(
     where: { id: siteId },
     include: { property: { include: { person: true } } },
   });
-  if (!site || site.locationId || !isPulseSiteActive(site.status)) return null;
+  if (!site || site.demo || site.locationId || !isPulseSiteActive(site.status)) return null;
 
   const adapter = getIoTAdapter(site.provider);
   if (!locations && !adapter.listLocations) return null;
@@ -221,7 +221,7 @@ export async function fillMissingLocationNames() {
 
 export async function autoLinkUnlinkedSites() {
   const sites = await prisma.pulseSite.findMany({
-    where: { locationId: null, status: { not: PULSE_SITE_DISABLED } },
+    where: { locationId: null, demo: false, status: { not: PULSE_SITE_DISABLED } },
     select: { id: true, provider: true },
   });
   if (sites.length === 0) return [];

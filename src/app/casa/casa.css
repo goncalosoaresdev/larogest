@@ -155,6 +155,22 @@ html:has(.laro-casa) body {
   letter-spacing: -0.035em;
 }
 .casa-place span { overflow: hidden; max-width: 210px; text-overflow: ellipsis; white-space: nowrap; }
+.casa-demo-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(41, 67, 55, 0.1);
+  color: var(--olive-dark);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 720;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
 .casa-place svg { width: 15px; height: 15px; transition: transform .18s ease; }
 .casa-place.is-open svg { transform: rotate(180deg); }
 .casa-place-scrim {

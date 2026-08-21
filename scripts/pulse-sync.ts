@@ -45,6 +45,7 @@ async function reconcileHomes(reason: string, siteId?: string) {
   const sites = await prisma.pulseSite.findMany({
     where: {
       locationId: { not: null },
+      demo: false,
       status: { not: PULSE_SITE_DISABLED },
       ...(siteId ? { id: siteId } : {}),
     },
@@ -76,6 +77,7 @@ async function adoptUnknownDevice(adapter: IoTAdapter, deviceId: string) {
     where: {
       provider: adapter.meta.id,
       locationId: remote.locationId,
+      demo: false,
       status: { not: PULSE_SITE_DISABLED },
     },
   });

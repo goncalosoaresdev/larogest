@@ -18,6 +18,7 @@ import { pulseSiteStatusLabel } from "@/lib/labels";
 export default async function PulsePage() {
   const [sites, properties] = await Promise.all([
     prisma.pulseSite.findMany({
+      where: { demo: false },
       include: {
         property: { include: { person: true } },
         devices: true,

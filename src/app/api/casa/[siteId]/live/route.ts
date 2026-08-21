@@ -1,5 +1,7 @@
 import { jsonError, jsonOk, limited } from "@/lib/api";
 import { loadCasaLive, requireCasaApiSite } from "@/lib/casa";
+import { isCasaDemoSlug, refreshDemoCasa } from "@/lib/casa-demo";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
@@ -9,6 +11,7 @@ export async function GET(
   if (blocked) return blocked;
   try {
     const { siteId } = await params;
+    if (isCasaDemoSlug(siteId)) await refreshDemoCasa(prisma);
     const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
     const live = await loadCasaLive(access.site.id);

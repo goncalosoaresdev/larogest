@@ -15,7 +15,7 @@ export default async function PulseAlertasPage({
   const alerts = await prisma.pulseAlert.findMany({
     where: {
       status: { in: ["OPEN", "ACKED"] },
-      site: { status: { not: PULSE_SITE_DISABLED } },
+      site: { status: { not: PULSE_SITE_DISABLED }, demo: false },
     },
     include: {
       site: { include: { property: { include: { person: true } } } },

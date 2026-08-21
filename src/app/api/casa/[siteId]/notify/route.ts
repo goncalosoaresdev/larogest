@@ -16,6 +16,7 @@ export async function GET(
     const { siteId } = await params;
     const access = await requireCasaApiSite(siteId, request);
     if (access.error) return access.error;
+    if (access.site.demo) return jsonError(404, "not_found");
 
     const row = await prisma.pulseNotifySettings.findUnique({ where: { siteId: access.site.id } });
     const prefs = row

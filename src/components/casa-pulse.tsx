@@ -54,6 +54,7 @@ export function CasaPulseView({
   houses = [],
   canSignOut = true,
   email = null,
+  demo = false,
 }: {
   ownerName: string;
   address: string;
@@ -66,6 +67,7 @@ export function CasaPulseView({
   houses?: CasaHouseOption[];
   canSignOut?: boolean;
   email?: string | null;
+  demo?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("casa");
   const [scrolled, setScrolled] = useState(false);
@@ -77,7 +79,7 @@ export function CasaPulseView({
   const openAlerts = live.alerts.filter((alert) => alert.status === "OPEN");
   const headline = casaHeadline(locale, live.devices, openAlerts.length);
   const tone = houseTone(live.devices, openAlerts.length, sensors);
-  const propertyName = casaHouseTitle(locale, city, address);
+  const propertyName = demo ? t("demo.house") : casaHouseTitle(locale, city, address);
   const givenName = firstName(ownerName);
   const tiles = ownerTiles(sensors, locale);
 
@@ -156,7 +158,7 @@ export function CasaPulseView({
                 Pulse
               </span>
             </strong>
-            <CasaPlaceSwitch currentSiteId={siteId} propertyName={propertyName} houses={houses} />
+            <CasaPlaceSwitch currentSiteId={siteId} propertyName={propertyName} houses={houses} demo={demo} />
             <div className="casa-account">
               <button
                 type="button"
@@ -204,9 +206,17 @@ export function CasaPulseView({
               {tab === "historico" ? <HistoryPane siteId={siteId} devices={sensors} now={clock} /> : null}
               {tab === "relatorios" ? <CasaReportsPane siteId={siteId} /> : null}
               {tab === "alertas" ? (
-                <AlertsPane siteId={siteId} alerts={live.alerts} devices={sensors} now={clock} />
+                <AlertsPane
+                  siteId={siteId}
+                  alerts={live.alerts}
+                  devices={sensors}
+                  now={clock}
+                  allowPush={!demo}
+                />
               ) : null}
-              {tab === "definicoes" ? <CasaSettings siteId={siteId} canSignOut={canSignOut} email={email} /> : null}
+              {tab === "definicoes" ? (
+                <CasaSettings siteId={siteId} canSignOut={canSignOut} email={email} demo={demo} />
+              ) : null}
             </div>
           </main>
 
@@ -244,14 +254,17 @@ function CasaPlaceSwitch({
   currentSiteId,
   propertyName,
   houses,
+  demo = false,
 }: {
   currentSiteId: string;
   propertyName: string;
   houses: CasaHouseOption[];
+  demo?: boolean;
 }) {
   const { locale, t } = useCasaLocale();
   const [open, setOpen] = useState(false);
   const canSwitch = houses.length > 1;
+  const badge = demo ? <i className="casa-demo-badge">{t("demo.badge")}</i> : null;
 
   useEffect(() => {
     if (!open) return;
@@ -266,6 +279,7 @@ function CasaPlaceSwitch({
     return (
       <p className="casa-place" aria-label={t("house.selected", { name: propertyName })}>
         <span>{propertyName}</span>
+        {badge}
       </p>
     );
   }
@@ -281,6 +295,7 @@ function CasaPlaceSwitch({
         onClick={() => setOpen((value) => !value)}
       >
         <span>{propertyName}</span>
+        {badge}
         <IconChevron />
       </button>
       {open ? (
@@ -874,11 +889,13 @@ function AlertsPane({
   alerts,
   devices,
   now,
+  allowPush = true,
 }: {
   siteId: string;
   alerts: CasaOwnerAlert[];
   devices: CasaOwnerDevice[];
   now: Date;
+  allowPush?: boolean;
 }) {
   const [items, setItems] = useState<CasaOwnerAlert[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -1000,9 +1017,11 @@ function AlertsPane({
       <div ref={sentinel} className="casa-history-more casa-alert-more" aria-hidden="true">
         {status === "loading" || (!done && past.length > 0) ? <i /> : null}
       </div>
-      <footer className="casa-alert-foot">
-        <CasaPushEnable />
-      </footer>
+      {allowPush ? (
+        <footer className="casa-alert-foot">
+          <CasaPushEnable />
+        </footer>
+      ) : null}
     </div>
   );
 }
