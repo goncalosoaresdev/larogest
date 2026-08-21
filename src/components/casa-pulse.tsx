@@ -5,6 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import type { PulseSample } from "@prisma/client";
 import type { CasaHouseOption, CasaLive, CasaOwnerAlert, CasaOwnerDevice } from "@/lib/casa";
+import {
+  isCasaInboxAlert,
+  mergeCasaPastAlerts,
+  type CasaAlertHistoryCursor,
+} from "@/lib/casa-alerts";
 import { format, startOfDay } from "date-fns";
 import { CasaTodayChart } from "@/components/casa-today-chart";
 import { pulseDeviceSeverity } from "@/lib/pulse";
@@ -46,6 +51,7 @@ export function CasaPulseView({
   siteId,
   houses = [],
   canSignOut = true,
+  email = null,
 }: {
   ownerName: string;
   address: string;
@@ -57,6 +63,7 @@ export function CasaPulseView({
   siteId: string;
   houses?: CasaHouseOption[];
   canSignOut?: boolean;
+  email?: string | null;
 }) {
   const [tab, setTab] = useState<Tab>("casa");
   const [scrolled, setScrolled] = useState(false);
@@ -72,6 +79,8 @@ export function CasaPulseView({
   const givenName = firstName(ownerName);
   const tiles = ownerTiles(sensors, locale);
 
+  const polledSite = useRef<string | null>(null);
+
   useEffect(() => {
     setLive({ devices, alerts, samples, now });
   }, [siteId]);
@@ -80,6 +89,8 @@ export function CasaPulseView({
     if (tab !== "casa" && tab !== "alertas") return;
     let cancelled = false;
     let timer = 0;
+    const waitForSsr = polledSite.current !== siteId;
+    polledSite.current = siteId;
 
     async function pull() {
       if (document.visibilityState !== "visible") return;
@@ -104,7 +115,8 @@ export function CasaPulseView({
       if (!cancelled) timer = window.setTimeout(loop, LIVE_MS);
     }
 
-    void loop();
+    if (waitForSsr) timer = window.setTimeout(() => void loop(), LIVE_MS);
+    else void loop();
     const onVisibility = () => {
       if (document.visibilityState === "visible") void pull();
     };
@@ -188,8 +200,8 @@ export function CasaPulseView({
                 />
               ) : null}
               {tab === "historico" ? <HistoryPane siteId={siteId} devices={sensors} now={clock} /> : null}
-              {tab === "alertas" ? <AlertsPane alerts={live.alerts} /> : null}
-              {tab === "definicoes" ? <CasaSettings siteId={siteId} canSignOut={canSignOut} /> : null}
+              {tab === "alertas" ? <AlertsPane siteId={siteId} alerts={live.alerts} now={clock} /> : null}
+              {tab === "definicoes" ? <CasaSettings siteId={siteId} canSignOut={canSignOut} email={email} /> : null}
             </div>
           </main>
 
@@ -770,6 +782,45 @@ function mergeHistory(current: CasaHistorySample[], incoming: CasaHistorySample[
   return extra.length ? current.concat(extra) : current;
 }
 
+async function fetchAlertHistoryPage(
+  siteId: string,
+  input: { cursor?: CasaAlertHistoryCursor | null; signal?: AbortSignal } = {},
+) {
+  const params = new URLSearchParams();
+  if (input.cursor) {
+    params.set("at", input.cursor.triggeredAt);
+    params.set("id", input.cursor.id);
+  }
+  const query = params.toString();
+  const response = await fetch(`/api/casa/${siteId}/alerts${query ? `?${query}` : ""}`, {
+    signal: input.signal,
+  });
+  if (!response.ok) throw new Error("alerts");
+  return (await response.json()) as { alerts: CasaOwnerAlert[]; nextCursor: CasaAlertHistoryCursor | null };
+}
+
+function mergeAlertHistory(current: CasaOwnerAlert[], incoming: CasaOwnerAlert[]) {
+  if (incoming.length === 0) return current;
+  const seen = new Set(current.map((item) => item.id));
+  const extra = incoming.filter((item) => !seen.has(item.id));
+  return extra.length ? current.concat(extra) : current;
+}
+
+function groupAlertDays(alerts: CasaOwnerAlert[], now: Date, locale: CasaLocale) {
+  const groups: { key: string; label: string; rows: CasaOwnerAlert[] }[] = [];
+  for (const item of alerts) {
+    const at = new Date(item.triggeredAt);
+    const key = format(startOfDay(at), "yyyy-MM-dd");
+    const last = groups[groups.length - 1];
+    if (last?.key === key) {
+      last.rows.push(item);
+      continue;
+    }
+    groups.push({ key, label: casaHistoryDay(at, now, locale), rows: [item] });
+  }
+  return groups;
+}
+
 function groupHistoryDays(samples: CasaHistorySample[], now: Date, locale: CasaLocale) {
   const groups: { key: string; label: string; rows: CasaHistorySample[] }[] = [];
   for (const sample of samples) {
@@ -810,13 +861,100 @@ function historyTone(sample: CasaHistorySample) {
   return "ok";
 }
 
-function AlertsPane({ alerts }: { alerts: CasaOwnerAlert[] }) {
+function AlertsPane({
+  siteId,
+  alerts,
+  now,
+}: {
+  siteId: string;
+  alerts: CasaOwnerAlert[];
+  now: Date;
+}) {
+  const [items, setItems] = useState<CasaOwnerAlert[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [done, setDone] = useState(false);
+  const cursor = useRef<CasaAlertHistoryCursor | null>(null);
+  const busy = useRef(false);
+  const generation = useRef(0);
+  const sentinel = useRef<HTMLDivElement>(null);
   const { locale, t } = useCasaLocale();
-  if (alerts.length === 0) {
+  const inbox = alerts.filter(isCasaInboxAlert);
+  const past = mergeCasaPastAlerts(
+    alerts.filter((item) => item.status === "RESOLVED"),
+    items,
+  );
+  const days = groupAlertDays(past, now, locale);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    const mine = ++generation.current;
+    cursor.current = null;
+    busy.current = true;
+    setItems([]);
+    setDone(false);
+    setStatus("loading");
+
+    void fetchAlertHistoryPage(siteId, { signal: ac.signal })
+      .then((page) => {
+        if (generation.current !== mine) return;
+        cursor.current = page.nextCursor;
+        setItems(page.alerts);
+        setDone(!page.nextCursor);
+        setStatus("ready");
+        busy.current = false;
+      })
+      .catch((error: unknown) => {
+        if (ac.signal.aborted || generation.current !== mine) return;
+        setStatus("error");
+        busy.current = false;
+        console.error(error);
+      });
+
+    return () => {
+      ac.abort();
+      busy.current = false;
+    };
+  }, [siteId]);
+
+  const loadMore = useCallback(() => {
+    if (busy.current || !cursor.current) return;
+    const mine = generation.current;
+    const next = cursor.current;
+    busy.current = true;
+    void fetchAlertHistoryPage(siteId, { cursor: next })
+      .then((page) => {
+        if (generation.current !== mine) return;
+        cursor.current = page.nextCursor;
+        setItems((current) => mergeAlertHistory(current, page.alerts));
+        setDone(!page.nextCursor);
+        busy.current = false;
+      })
+      .catch(() => {
+        if (generation.current !== mine) return;
+        busy.current = false;
+      });
+  }, [siteId]);
+
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || status !== "ready") return;
+    const root = node.closest(".casa-screen");
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMore();
+      },
+      { root, rootMargin: "360px 0px" },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [loadMore, status, items.length]);
+
+  if (inbox.length === 0 && past.length === 0 && status !== "loading") {
     return (
       <div className="casa-pane">
         <h2>{t("alerts.emptyTitle")}</h2>
         <p className="casa-pane-lead">{t("alerts.emptyLead")}</p>
+        {status === "error" ? <p className="casa-history-empty">{t("alerts.pastError")}</p> : null}
         <CasaPushEnable />
       </div>
     );
@@ -825,19 +963,54 @@ function AlertsPane({ alerts }: { alerts: CasaOwnerAlert[] }) {
   return (
     <div className="casa-pane">
       <h2>{t("alerts.title")}</h2>
-      <ol className="casa-timeline">
-        {alerts.map((item) => (
-          <li key={item.id} className={item.status === "OPEN" ? "is-open" : "is-ok"}>
-            <span>{item.status === "OPEN" ? t("alerts.open") : t("alerts.resolved")}</span>
-            <strong>{casaAlertTypeLabel(locale, item.type)}</strong>
-            <small>
-              {item.message} · {casaRelativeTime(item.triggeredAt, locale)}
-            </small>
-          </li>
-        ))}
-      </ol>
+      {inbox.length === 0 && past.length > 0 ? <p className="casa-pane-lead">{t("alerts.clear")}</p> : null}
+      {inbox.length > 0 ? (
+        <section className="casa-history-day">
+          <h3>{t("alerts.now")}</h3>
+          <ol className="casa-timeline">
+            {inbox.map((item) => (
+              <AlertRow key={item.id} item={item} locale={locale} open />
+            ))}
+          </ol>
+        </section>
+      ) : null}
+      {days.map((day) => (
+        <section key={day.key} className="casa-history-day">
+          <h3>{day.label}</h3>
+          <ol className="casa-timeline">
+            {day.rows.map((item) => (
+              <AlertRow key={item.id} item={item} locale={locale} />
+            ))}
+          </ol>
+        </section>
+      ))}
+      {status === "error" ? <p className="casa-history-empty">{t("alerts.pastError")}</p> : null}
+      <div ref={sentinel} className="casa-history-more" aria-hidden="true">
+        {status === "loading" || (!done && past.length > 0) ? <i /> : null}
+      </div>
       <CasaPushEnable />
     </div>
+  );
+}
+
+function AlertRow({
+  item,
+  locale,
+  open = false,
+}: {
+  item: CasaOwnerAlert;
+  locale: CasaLocale;
+  open?: boolean;
+}) {
+  const { t } = useCasaLocale();
+  return (
+    <li className={open ? "is-open" : "is-ok"}>
+      <span>{open ? t("alerts.open") : t("alerts.resolved")}</span>
+      <strong>{casaAlertTypeLabel(locale, item.type)}</strong>
+      <small>
+        {item.message} · {casaRelativeTime(item.triggeredAt, locale)}
+      </small>
+    </li>
   );
 }
 

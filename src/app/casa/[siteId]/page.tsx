@@ -57,6 +57,7 @@ export default async function CasaPulsePage({
       siteId={site.id}
       houses={house.houses}
       canSignOut={getSessionRole(session) === "OWNER"}
+      email={session.user.email}
     />
   );
 }

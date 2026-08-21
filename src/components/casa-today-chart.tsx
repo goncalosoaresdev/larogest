@@ -59,8 +59,8 @@ export function CasaTodayChart({
       ? visibleEvents.length === 1
         ? t("today.one")
         : t("today.many", { n: visibleEvents.length })
-      : !hasClimate
-        ? t("today.noClimate")
+      : events.length === 0
+        ? t("today.none")
         : tape.pinned
           ? t("today.calm")
           : t("today.earlier");
@@ -211,7 +211,7 @@ function DayPlot({
               {line ? <path className="casa-day-line-back" d={line} /> : null}
               {line ? <path className="casa-day-line" d={line} /> : null}
             </svg>
-            {empty ? <p className="casa-day-empty">{t("today.noClimate")}</p> : null}
+            {empty ? <p className="casa-day-empty">{t("today.none")}</p> : null}
             {events.map((mark) => {
               const point = toXy(mark.at, mark.humidity, day, tape.units);
               const active = selected?.id === mark.id;

@@ -13,7 +13,15 @@ const WHEEL_ITEM = 28;
 const WHEEL_PAD = 21;
 const WHEEL_H = WHEEL_ITEM + WHEEL_PAD * 2;
 
-export function CasaSettings({ siteId, canSignOut = true }: { siteId: string; canSignOut?: boolean }) {
+export function CasaSettings({
+  siteId,
+  canSignOut = true,
+  email = null,
+}: {
+  siteId: string;
+  canSignOut?: boolean;
+  email?: string | null;
+}) {
   const [prefs, setPrefs] = useState<CasaNotifyPrefs>(DEFAULT_CASA_NOTIFY);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [pushState, setPushState] = useState<CasaPushStatus>("hidden");
@@ -153,6 +161,14 @@ export function CasaSettings({ siteId, canSignOut = true }: { siteId: string; ca
       {canSignOut ? (
         <section className="casa-settings">
           <h3>{t("settings.account")}</h3>
+          {email ? (
+            <p className="casa-account-email">
+              <span>
+                <strong>{t("settings.email")}</strong>
+                <small>{email}</small>
+              </span>
+            </p>
+          ) : null}
           <button
             type="button"
             className="casa-setting"

@@ -2,6 +2,13 @@ import type { IoTProvider, Prisma, PulseAlertType, PulseDevice, PulseDeviceKind 
 import { prisma } from "@/lib/prisma";
 import { getIoTAdapter, matchProviderLocation } from "@/lib/iot";
 import type { ProviderDevice, ProviderLocation } from "@/lib/iot/types";
+import {
+  motionSessionExpired,
+  nextLastMotionAt,
+  readLastMotionAt,
+  shouldOpenMotionAlert,
+  withLastMotionAt,
+} from "@/lib/pulse-motion";
 
 export const PULSE_SITE_ACTIVE = "ACTIVE";
 export const PULSE_SITE_DISABLED = "DISABLED";
@@ -330,13 +337,28 @@ export async function applyPulseReading(
     previous.humidity === reading.humidity &&
     previous.lux === reading.lux;
 
+  const lastMotionAt = nextLastMotionAt({
+    motion: reading.motion,
+    previousMotion: previous.motion,
+    previousLastMotionAt: readLastMotionAt(device.lastPayload),
+    now,
+  });
+  const payload = withLastMotionAt(reading, lastMotionAt) as Prisma.InputJsonValue;
+
   if (sameState) {
-    if (input.online && device.lastSeenAt && now.getTime() - device.lastSeenAt.getTime() >= 60_000) {
+    const due = Boolean(
+      input.online && device.lastSeenAt && now.getTime() - device.lastSeenAt.getTime() >= 60_000,
+    );
+    if (due) {
       await tx.pulseDevice.update({
         where: { id: device.id },
-        data: { lastSeenAt: now },
+        data: {
+          lastSeenAt: now,
+          lastPayload: payload,
+        },
       });
     }
+    await closeQuietMotionSession(tx, device, reading, lastMotionAt, now);
     return [];
   }
 
@@ -353,7 +375,7 @@ export async function applyPulseReading(
       online: input.online,
       lastSeenAt: input.online ? now : device.lastSeenAt,
       batteryPct: input.batteryPct,
-      lastPayload: reading as Prisma.InputJsonValue,
+      lastPayload: payload,
     },
   });
 
@@ -374,11 +396,13 @@ export async function applyPulseReading(
   }
 
   if (device.kind === "MOTION") {
-    await track(
-      "MOTION",
-      reading.motion === true,
-      reading.lux != null ? `Movimento detectado (${Math.round(reading.lux)} lx)` : "Movimento detectado",
-    );
+    const message =
+      reading.lux != null ? `Movimento detectado (${Math.round(reading.lux)} lx)` : "Movimento detectado";
+    if (shouldOpenMotionAlert(previous.motion, reading.motion)) {
+      await track("MOTION", true, message);
+    } else {
+      await closeQuietMotionSession(tx, device, reading, lastMotionAt, now);
+    }
   }
 
   if (device.kind === "TEMP_HUMIDITY") {
@@ -459,6 +483,24 @@ async function recordPulseSample(
       batteryPct: sample.batteryPct,
       online: sample.online,
     },
+  });
+}
+
+async function closeQuietMotionSession(
+  tx: Prisma.TransactionClient,
+  device: PulseDevice,
+  reading: PulseReading,
+  lastMotionAt: Date | null,
+  now: Date,
+) {
+  if (device.kind !== "MOTION" || reading.motion === true) return;
+  if (!motionSessionExpired({ lastMotionAt, now })) return;
+  await setAlert(tx, {
+    siteId: device.siteId,
+    deviceId: device.id,
+    type: "MOTION",
+    active: false,
+    message: "Movimento detectado",
   });
 }
 

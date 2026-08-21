@@ -936,14 +936,15 @@ html:has(.laro-casa) body {
 
 .casa-pane { min-height: 100%; padding: 8px 2px 22px; }
 .casa-pane h2 {
-  margin: 4px 2px 14px;
+  margin: 4px 2px 14px 0;
+  padding: 0;
   color: var(--ink);
   font-size: 21px;
   font-weight: 620;
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
-.casa-pane-lead { margin: 0 0 12px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+.casa-pane-lead { margin: 0 0 12px 0; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
 
 .casa-history-filters {
   display: flex;
@@ -1002,6 +1003,23 @@ html:has(.laro-casa) body {
 .casa-setting strong { display: block; font-size: 15px; font-weight: 590; letter-spacing: -0.03em; }
 .casa-setting small { color: var(--ink-soft); font-size: 12.5px; line-height: 1.35; }
 .casa-setting:disabled { opacity: 0.45; }
+.casa-account-email {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 2px 0 12px;
+  border: 0;
+}
+.casa-account-email strong { display: block; font-size: 15px; font-weight: 590; letter-spacing: -0.03em; }
+.casa-account-email small {
+  overflow: hidden;
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .casa-switch {
   flex: none;
   width: 42px;
@@ -1070,7 +1088,7 @@ html:has(.laro-casa) body {
 .casa-history-list small { color: var(--ink-soft); font-size: 13px; }
 .casa-history-list li[data-tone="alert"] strong { color: var(--alert); }
 .casa-history-list li[data-tone="warn"] strong { color: var(--warn); }
-.casa-timeline { margin: 26px 0 0; padding: 0 0 0 16px; border-left: 1px solid var(--line); list-style: none; }
+.casa-timeline { margin: 8px 0 0; padding: 0 0 0 16px; border-left: 1px solid var(--line); list-style: none; }
 .casa-timeline li { position: relative; margin: 0 0 24px; padding-left: 18px; }
 .casa-timeline li::before { position: absolute; top: 6px; left: -21px; width: 9px; height: 9px; border-radius: 50%; background: var(--olive); content: ""; }
 .casa-timeline li.is-open::before { background: var(--alert); box-shadow: 0 0 0 4px rgba(156,77,66,.12); }

@@ -41,7 +41,7 @@ describe("parsePulsePayload", () => {
     assert.deepEqual(parsePulsePayload(null), {});
     assert.deepEqual(parsePulsePayload([]), {});
     assert.deepEqual(
-      parsePulsePayload({ leak: true, temperature: 21.4, extra: "nope", humidity: "55" }),
+      parsePulsePayload({ leak: true, temperature: 21.4, extra: "nope", humidity: "55", lastMotionAt: "2026-08-21T11:40:00.000Z" }),
       { leak: true, temperature: 21.4, open: undefined, humidity: undefined, motion: undefined, lux: undefined },
     );
   });

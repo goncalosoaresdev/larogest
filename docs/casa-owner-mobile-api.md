@@ -253,6 +253,32 @@ Requires bearer. Poll while the house screen is visible (website uses **60s** + 
 - `404` `{ "error": "not_found" }` house missing / not owned / disabled
 - `401` `{ "error": "unauthenticated" }`
 
+`alerts` here is **not** full history: open/acked (any day) plus events triggered since Lisbon midnight. Use that for the house screen and today chart. Past resolved events: `GET .../alerts`.
+
+---
+
+### `GET /api/casa/{siteId}/alerts`
+
+Requires bearer. Newest-first pages of **resolved** alerts from the last **30 days**.
+
+Query:
+
+| Param | Required | Meaning |
+| --- | --- | --- |
+| `at` | with `id` | Cursor: previous page’s `nextCursor.triggeredAt` |
+| `id` | with `at` | Cursor: previous page’s `nextCursor.id` |
+
+`200`:
+
+```json
+{
+  "alerts": [ /* CasaAlert, status RESOLVED */ ],
+  "nextCursor": { "triggeredAt": "ISO", "id": "cuid" } | null
+}
+```
+
+Page size is server-controlled (~24). Stop when `nextCursor` is `null` or `alerts` is empty. Open/acked alerts stay on `live` / snapshot, not this list.
+
 ---
 
 ### `GET /api/casa/{siteId}/history`
@@ -456,6 +482,11 @@ type CasaHistoryResponse = {
   nextCursor: { recordedAt: string; id: string } | null;
 };
 
+type CasaAlertHistoryResponse = {
+  alerts: CasaAlert[];
+  nextCursor: { triggeredAt: string; id: string } | null;
+};
+
 type CasaVerifyResponse = {
   token: string;
   user: CasaUser;
@@ -488,7 +519,7 @@ Suggested labels if you map enums (`kind` / `type` / `headline`). Keep these in 
 | `GATEWAY` | Gateway |
 | `OTHER` | Sensor |
 
-Open alerts: `status === "OPEN"`. Water leak: `type === "WATER_LEAK"` or `reading.leak === true`.
+Open alerts: `status === "OPEN"` or `ACKED`. Water leak: `type === "WATER_LEAK"` or `reading.leak === true`. Resolved history: `GET /api/casa/{siteId}/alerts` (last 30 days).
 
 Chart / event readout — join `alerts[].deviceId` to samples (or the live device) for the number. Do not show humidity for every mark.
 
@@ -507,8 +538,9 @@ Chart / event readout — join `alerts[].deviceId` to samples (or the live devic
 2. Login: email screen → `POST .../otp` → code screen → `POST .../verify` → save token → house list or first `siteId`. Map `error` codes to locale strings; never show the code.
 3. House screen: `GET .../live` on appear; poll ~60s while visible; pause in background.
 4. History: first page without cursor; next pages with `at` + `id`.
-5. Settings: `GET` notify, `PATCH` on toggle. Do not call `/push`.
-6. After login: request APNs permission, `POST /api/casa/devices`. On logout: `DELETE /api/casa/devices`, then `POST .../sign-out`, delete token.
+5. Events: `live.alerts` for open/acked; `GET .../alerts` for resolved (last 30 days), same cursor pattern (`at` + `id`).
+6. Settings: `GET` notify, `PATCH` on toggle. Do not call `/push`.
+7. After login: request APNs permission, `POST /api/casa/devices`. On logout: `DELETE /api/casa/devices`, then `POST .../sign-out`, delete token.
 
 Timeouts: 10s is enough. Retry `GET` on network errors; do not auto-retry `POST /otp` or `/verify`.
 
